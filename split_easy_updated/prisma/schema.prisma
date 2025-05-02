@@ -8,67 +8,50 @@ datasource db {
 }
 
 model User {
-  firebaseUid      String?                @unique
-  id               String                 @id @default(auto()) @map("_id") @db.ObjectId
-  email            String                 @unique
-  name             String?
-  password         String?
-  friendships      Friendship[]           @relation("UserFriendships")
-  friendOf         Friendship[]           @relation("FriendUserFriendships")
-  expenses         Expense[]              @relation("PaidByUser")
-  receipts         Receipt[]              @relation("UploadedByUser")
-  transactionsFrom Transaction[]          @relation("TransactionFromUser")
-  transactionsTo   TransactionRecipient[] @relation("TransactionToUser")
-  createdAt        DateTime               @default(now())
-}
-
-model Friendship {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  user      User     @relation("UserFriendships", fields: [userId], references: [id])
-  userId    String   @db.ObjectId
-  friend    User     @relation("FriendUserFriendships", fields: [friendId], references: [id])
-  friendId  String   @db.ObjectId
-  createdAt DateTime @default(now())
+  firebaseUid String?  @unique
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  email       String   @unique
+  name        String?
+  password    String?
+  createdAt   DateTime @default(now())
 }
 
 model Receipt {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  imageUrl     String
-  uploadedBy   User     @relation("UploadedByUser", fields: [uploadedById], references: [id])
-  uploadedById String   @db.ObjectId
-  expense      Expense?
-  createdAt    DateTime @default(now())
-}
-
-model Expense {
   id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  description  String
-  totalAmount  Float
-  paidBy       User          @relation("PaidByUser", fields: [paidById], references: [id])
-  paidById     String        @db.ObjectId
-  receipt      Receipt?      @relation(fields: [receiptId], references: [id])
-  receiptId    String?       @unique @db.ObjectId
-  transactions Transaction[]
+  subtotal     Float
+  tax          Float
+  tip          Float
+  total        Float
+  items        Item[]
+  participants Participant[]
   createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }
 
-model Transaction {
-  id         String                 @id @default(auto()) @map("_id") @db.ObjectId
-  expense    Expense                @relation(fields: [expenseId], references: [id])
-  expenseId  String                 @db.ObjectId
-  from       User                   @relation("TransactionFromUser", fields: [fromId], references: [id])
-  fromId     String                 @db.ObjectId
-  recipients TransactionRecipient[]
-  amount     Float
-  createdAt  DateTime               @default(now())
+model Item {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  receiptId    String       @db.ObjectId
+  receipt      Receipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  description  String
+  quantity     Float
+  price        Float
+  isMultiplied Boolean      @default(false)
+  assignments  Assignment[]
 }
 
-model TransactionRecipient {
+model Participant {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  receiptId   String       @db.ObjectId
+  receipt     Receipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  name        String
+  assignments Assignment[]
+}
+
+model Assignment {
   id            String      @id @default(auto()) @map("_id") @db.ObjectId
-  transaction   Transaction @relation(fields: [transactionId], references: [id])
-  transactionId String      @db.ObjectId
-  to            User        @relation("TransactionToUser", fields: [toId], references: [id])
-  toId          String      @db.ObjectId
+  itemId        String      @db.ObjectId
+  item          Item        @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  participantId String      @db.ObjectId
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
   amount        Float
-  createdAt     DateTime    @default(now())
 }

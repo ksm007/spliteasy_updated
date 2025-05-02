@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,31 +11,16 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
-} from "@/components/ui/table";
-import { Upload, Loader2, ChevronRight, ImageIcon } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, Loader2, ChevronRight, ImageIcon } from "lucide-react";
 
-type ReceiptItem = {
-  description: string;
-  quantity: number;
-  price: number;
-};
-
-type ParsedReceipt = {
-  items: ReceiptItem[];
-  subtotal: number;
-  tax: number;
-  tip: number;
-  total: number;
-};
+import { ReceiptItem, ParsedReceipt, Participant } from "@/types";
+import { calculateTotals } from "./_components/utils";
+import ReceiptTable from "./_components/ReceiptTable";
+import ParticipantManager from "./_components/ParticipanyManager";
+import CostBreakdown from "./_components/CostBreakdown";
 
 export default function UploadReceipt() {
   const [file, setFile] = useState<File | null>(null);
@@ -44,9 +29,76 @@ export default function UploadReceipt() {
   const [parsed, setParsed] = useState<ParsedReceipt | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [activeTab, setActiveTab] = useState("receipt");
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Add event listener for the "addNewReceiptItem" custom event
+  useEffect(() => {
+    const handleAddNewReceiptItem = (event: CustomEvent) => {
+      addNewReceiptItem(event.detail);
+    };
+
+    // Add event listener with type assertion for proper TypeScript typing
+    window.addEventListener('addNewReceiptItem', handleAddNewReceiptItem as EventListener);
+
+    // Clean up the event listener when component unmounts
+    return () => {
+      window.removeEventListener('addNewReceiptItem', handleAddNewReceiptItem as EventListener);
+    };
+  }, [parsed]); // Re-add listener when parsed changes to ensure current state is used
+
+  // Function to add a new receipt item to the parsed receipt
+  const addNewReceiptItem = (newItem: ReceiptItem) => {
+    if (!parsed) return;
+
+    // Create a new array of items with the new item added
+    const updatedItems = [...parsed.items, newItem];
+    
+    // Recalculate totals
+    const { subtotal } = calculateTotals(updatedItems);
+    
+    // Update the parsed receipt with the new item and recalculated totals
+    setParsed({
+      ...parsed,
+      items: updatedItems,
+      subtotal,
+      total: subtotal + parsed.tax + parsed.tip,
+    });
+
+    // Show a toast notification
+    toast({
+      title: "Item Added",
+      description: "A new item has been added to the receipt",
+    });
+  };
+
+  // Function to delete a receipt item from the parsed receipt
+  const deleteReceiptItem = (index: number) => {
+    if (!parsed) return;
+    
+    // Filter out the item at the specified index
+    const updatedItems = parsed.items.filter((_, i) => i !== index);
+    
+    // Recalculate totals
+    const { subtotal } = calculateTotals(updatedItems);
+    
+    // Update the parsed receipt with the filtered items and recalculated totals
+    setParsed({
+      ...parsed,
+      items: updatedItems,
+      subtotal,
+      total: subtotal + parsed.tax + parsed.tip,
+    });
+
+    // Show a toast notification
+    toast({
+      title: "Item Removed",
+      description: "An item has been removed from the receipt",
+    });
+  };
 
   const handleFileSelect = useCallback(
     (f: File) => {
@@ -133,9 +185,20 @@ export default function UploadReceipt() {
         throw new Error(errorData.error || "Failed to process receipt");
       }
 
-      const result: ParsedReceipt = await res.json();
-      setParsed(result);
+      // Modify the API response to include our new isMultiplied field
+      const result = await res.json();
+      const modifiedResult = {
+        ...result,
+        items: result.items.map((item: any) => ({
+          ...item,
+          isMultiplied: false, // Default to false for all items
+          assignments: [], // Initialize empty assignments for each item
+        })),
+      };
+      
+      setParsed(modifiedResult);
       setProgress(100);
+      setActiveTab("receipt"); // Switch to receipt tab after successful processing
 
       toast({
         title: "Receipt processed",
@@ -155,166 +218,199 @@ export default function UploadReceipt() {
     }
   };
 
+  const updateReceiptItem = (index: number, updatedFields: Partial<ReceiptItem>) => {
+    if (!parsed) return;
+    
+    const updatedItems = [...parsed.items];
+    updatedItems[index] = { ...updatedItems[index], ...updatedFields };
+    
+    // Recalculate totals
+    const { subtotal } = calculateTotals(updatedItems);
+    
+    setParsed({
+      ...parsed,
+      items: updatedItems,
+      subtotal,
+      total: subtotal + parsed.tax + parsed.tip,
+    });
+  };
+
+  const updateTaxAndTip = (key: "tax" | "tip", value: number) => {
+    if (!parsed) return;
+    
+    const updates = { [key]: value };
+    const newTotal = parsed.subtotal + (key === "tax" ? value : parsed.tax) + 
+                    (key === "tip" ? value : parsed.tip);
+    
+    setParsed({
+      ...parsed,
+      ...updates,
+      total: newTotal,
+    });
+  };
+
   const reset = () => {
     setFile(null);
     setPreview(null);
     setParsed(null);
     setError(null);
     setProgress(0);
+    setActiveTab("upload");
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Receipt Parser</CardTitle>
-          <CardDescription>
-            Upload a receipt image to extract items and totals
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) =>
-              e.target.files?.[0] && handleFileSelect(e.target.files[0])
-            }
-          />
+    <div className="max-w-7xl mx-auto p-4 space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="receipt" disabled={!parsed}>
+            Receipt Details
+          </TabsTrigger>
+          <TabsTrigger value="participants" disabled={!parsed}>
+            Participants
+          </TabsTrigger>
+        </TabsList>
 
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              preview ? "" : "hover:bg-accent/50"
-            }`}
-            onClick={() => fileRef.current?.click()}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            {preview ? (
-              <div className="flex flex-col items-center">
-                <img
-                  src={preview}
-                  alt="Receipt preview"
-                  className="mx-auto max-h-64 object-contain"
+        <TabsContent value="upload" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Receipt Parser</CardTitle>
+              <CardDescription>
+                Upload a receipt image to extract items and totals
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) =>
+                  e.target.files?.[0] && handleFileSelect(e.target.files[0])
+                }
+              />
+
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  preview ? "" : "hover:bg-accent/50"
+                }`}
+                onClick={() => fileRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                {preview ? (
+                  <div className="flex flex-col items-center">
+                    <img
+                      src={preview}
+                      alt="Receipt preview"
+                      className="mx-auto max-h-64 object-contain"
+                    />
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Click to select a different image
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center py-4">
+                    <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
+                    <p className="font-medium">Drag & drop or click to upload</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Supports JPEG, PNG, and other image formats
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {processing && progress > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Processing</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="w-full" />
+                </div>
+              )}
+
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive rounded-md text-destructive text-sm">
+                  {error}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-end gap-2">
+              {file && (
+                <Button variant="outline" onClick={reset} disabled={processing}>
+                  Reset
+                </Button>
+              )}
+              <Button
+                onClick={handleSubmit}
+                disabled={!file || processing}
+                className="gap-2"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Processing…
+                  </>
+                ) : (
+                  <>
+                    Process Receipt <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="receipt" className="mt-4">
+          {parsed && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Receipt Details</CardTitle>
+                <CardDescription>
+                  Edit and manage parsed receipt data
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <ReceiptTable
+                  receipt={parsed}
+                  updateReceiptItem={updateReceiptItem}
+                  deleteReceiptItem={deleteReceiptItem} // Added delete function
+                  participants={participants}
+                  updateTaxAndTip={updateTaxAndTip}
                 />
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Click to select a different image
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-4">
-                <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                <p className="font-medium">Drag & drop or click to upload</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Supports JPEG, PNG, and other image formats
-                </p>
-              </div>
-            )}
-          </div>
-
-          {processing && progress > 0 && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Processing</span>
-                <span>{progress}%</span>
-              </div>
-              <Progress value={progress} className="w-full" />
-            </div>
+              </CardContent>
+            </Card>
           )}
+        </TabsContent>
 
-          {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive rounded-md text-destructive text-sm">
-              {error}
-            </div>
+        <TabsContent value="participants" className="mt-4 space-y-4">
+          {parsed && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Split Receipt</CardTitle>
+                  <CardDescription>
+                    Add participants and assign items to them
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ParticipantManager
+                    participants={participants}
+                    setParticipants={setParticipants}
+                  />
+                </CardContent>
+              </Card>
+              
+              {participants.length > 0 && (
+                <CostBreakdown 
+                  receipt={parsed}
+                  participants={participants}
+                />
+              )}
+            </>
           )}
-        </CardContent>
-        <CardFooter className="flex justify-end gap-2">
-          {file && (
-            <Button variant="outline" onClick={reset} disabled={processing}>
-              Reset
-            </Button>
-          )}
-          <Button
-            onClick={handleSubmit}
-            disabled={!file || processing}
-            className="gap-2"
-          >
-            {processing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Processing…
-              </>
-            ) : (
-              <>
-                Process Receipt <ChevronRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      {parsed && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle>Parsed Receipt</CardTitle>
-            <CardDescription>
-              Structured data extracted from the receipt
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <TableHead className="text-right">Price</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parsed.items.map((item, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{item.description}</TableCell>
-                    <TableCell className="text-right">
-                      {item.quantity}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      ${item.price.toFixed(2)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-                <TableRow className="border-t-2">
-                  <TableCell className="font-medium">Subtotal</TableCell>
-                  <TableCell />
-                  <TableCell className="text-right font-medium">
-                    ${parsed.subtotal.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Tax</TableCell>
-                  <TableCell />
-                  <TableCell className="text-right font-medium">
-                    ${parsed.tax.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Tip</TableCell>
-                  <TableCell />
-                  <TableCell className="text-right font-medium">
-                    ${parsed.tip.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-                <TableRow className="border-t-2">
-                  <TableCell className="font-bold">Total</TableCell>
-                  <TableCell />
-                  <TableCell className="text-right font-bold">
-                    ${parsed.total.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
