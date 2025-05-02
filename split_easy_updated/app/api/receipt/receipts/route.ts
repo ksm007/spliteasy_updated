@@ -1,18 +1,31 @@
-// app/api/receipts/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth-middleware";
 
 export async function POST(request: NextRequest) {
   try {
+    // Get the Firebase ID token from Authorization header
+    const auth = await authenticateRequest(request);
+
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get receipt data from request
     const data = await request.json();
+
+    // Check if all funds are assigned
+    const isFullyAssigned = checkAllFundsAssigned(data.items);
 
     // Create receipt with nested data
     const receipt = await prisma.receipt.create({
       data: {
+        userId: auth.user.id,
         subtotal: data.subtotal,
         tax: data.tax,
         tip: data.tip,
         total: data.total,
+        isFullyAssigned,
         participants: {
           create: data.participants.map((participant: any) => ({
             name: participant.name,
@@ -33,7 +46,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create assignments separately since they relate to both items and participants
+    // Create assignments
     for (const item of data.items) {
       if (item.assignments && item.assignments.length > 0) {
         const createdItem = receipt.items.find(
@@ -43,7 +56,6 @@ export async function POST(request: NextRequest) {
         if (createdItem) {
           for (const assignment of item.assignments) {
             if (assignment.participantId) {
-              // Find the corresponding participant in the database
               const originalParticipant = data.participants.find(
                 (p: any) => p.id === assignment.participantId
               );
@@ -72,6 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       receiptId: receipt.id,
+      isFullyAssigned,
     });
   } catch (error) {
     console.error("Error saving receipt:", error);
@@ -82,10 +95,40 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// app/api/receipts/route.ts (add to existing file)
-export async function GET() {
+// Helper function to check if all funds are assigned
+function checkAllFundsAssigned(items: any[]): boolean {
+  for (const item of items) {
+    const itemTotal = item.isMultiplied
+      ? item.price
+      : item.price * item.quantity;
+    const assignedTotal = (item.assignments || []).reduce(
+      (sum: number, assignment: any) => sum + assignment.amount,
+      0
+    );
+
+    // If there's a difference between assigned amount and item total
+    if (Math.abs(itemTotal - assignedTotal) > 0.01) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// app/api/receipt/receipts/route.ts (add GET handler)
+export async function GET(request: NextRequest) {
   try {
+    // Get Firebase ID token
+    const auth = await authenticateRequest(request);
+
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get receipts for this user
     const receipts = await prisma.receipt.findMany({
+      where: {
+        userId: auth.user.id,
+      },
       orderBy: {
         createdAt: "desc",
       },

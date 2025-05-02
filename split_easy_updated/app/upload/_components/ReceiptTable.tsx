@@ -34,6 +34,7 @@ interface ReceiptTableProps {
   deleteReceiptItem: (index: number) => void; // Added delete function prop
   participants: Participant[];
   updateTaxAndTip: (key: "tax" | "tip", value: number) => void;
+  isReadOnly?: boolean;
 }
 
 export default function ReceiptTable({
@@ -42,6 +43,7 @@ export default function ReceiptTable({
   deleteReceiptItem, // Added delete function
   participants,
   updateTaxAndTip,
+  isReadOnly = false,
 }: ReceiptTableProps) {
   // Add assignment to an item
   const addAssignment = (itemIndex: number) => {
@@ -169,6 +171,7 @@ export default function ReceiptTable({
                     });
                   }}
                   className="w-full"
+                  readOnly={isReadOnly}
                 />
               </TableCell>
               {participants.length > 0 && (
@@ -188,6 +191,7 @@ export default function ReceiptTable({
                                   value === "unassigned" ? "" : value,
                               });
                             }}
+                            disabled={isReadOnly}
                           >
                             <SelectTrigger className="w-[140px]">
                               <SelectValue placeholder="Select person" />
@@ -214,11 +218,13 @@ export default function ReceiptTable({
                               });
                             }}
                             className="w-20"
+                            readOnly={isReadOnly}
                           />
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => removeAssignment(i, assignmentIndex)}
+                            disabled={isReadOnly}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -231,6 +237,7 @@ export default function ReceiptTable({
                         variant="outline"
                         size="sm"
                         onClick={() => addAssignment(i)}
+                        disabled={isReadOnly}
                       >
                         <Plus className="h-4 w-4 mr-1" /> Add person
                       </Button>
@@ -239,6 +246,7 @@ export default function ReceiptTable({
                         variant="outline"
                         size="sm"
                         onClick={() => splitEqually(i)}
+                        disabled={isReadOnly}
                       >
                         <SplitSquareHorizontal className="h-4 w-4 mr-1" /> Split
                         Equally
@@ -263,6 +271,7 @@ export default function ReceiptTable({
                     });
                   }}
                   className="w-16 text-right"
+                  readOnly={isReadOnly}
                 />
               </TableCell>
               <TableCell>
@@ -275,6 +284,7 @@ export default function ReceiptTable({
                     });
                   }}
                   className="w-24 text-right"
+                  readOnly={isReadOnly}
                 />
               </TableCell>
               <TableCell>
@@ -283,6 +293,7 @@ export default function ReceiptTable({
                   onCheckedChange={(checked) => {
                     updateReceiptItem(i, { isMultiplied: !!checked });
                   }}
+                  disabled={isReadOnly}
                 />
               </TableCell>
               <TableCell>{formatCurrency(getItemTotal(item))}</TableCell>
@@ -292,6 +303,7 @@ export default function ReceiptTable({
                   size="icon"
                   onClick={() => deleteReceiptItem(i)}
                   className="hover:text-destructive"
+                  disabled={isReadOnly}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -323,6 +335,7 @@ export default function ReceiptTable({
                   updateTaxAndTip("tax", parseFloat(e.target.value) || 0);
                 }}
                 className="w-24 text-right"
+                readOnly={isReadOnly}
               />
             </TableCell>
             <TableCell>{formatCurrency(receipt.tax)}</TableCell>
@@ -343,6 +356,7 @@ export default function ReceiptTable({
                   updateTaxAndTip("tip", parseFloat(e.target.value) || 0);
                 }}
                 className="w-24 text-right"
+                readOnly={isReadOnly}
               />
             </TableCell>
             <TableCell>{formatCurrency(receipt.tip)}</TableCell>
@@ -363,7 +377,7 @@ export default function ReceiptTable({
 
       {/* Add Item Button */}
       <div className="mt-4 flex justify-end">
-        <Button variant="secondary" onClick={addNewItem}>
+        <Button variant="secondary" onClick={addNewItem} disabled={isReadOnly}>
           <Plus className="h-4 w-4 mr-1" /> Add Missed Item
         </Button>
       </div>

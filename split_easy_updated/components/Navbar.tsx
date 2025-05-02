@@ -1,19 +1,21 @@
 "use client";
+
 import React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "../contexts/AuthContext";
-import { useRouter } from "next/navigation";
 
-const Navbar = () => {
+export default function Navbar() {
   const { user, signOut } = useAuth();
   const router = useRouter();
 
@@ -22,31 +24,38 @@ const Navbar = () => {
     router.push("/");
   };
 
-  const getInitials = (name: string) => {
-    return name
+  const getInitials = (name: string) =>
+    name
       .split(" ")
-      .map((part) => part[0])
+      .map((p) => p[0])
       .join("")
       .toUpperCase();
-  };
 
   return (
-    <header className="border-b py-2 px-4 flex justify-between items-center bg-background">
+    <header className="w-full border-b bg-background py-2 px-4 flex items-center justify-between">
+      {/* Left: hamburger + logo */}
       <div className="flex items-center gap-2">
         <SidebarTrigger className="block md:hidden" />
-        <h1 className="text-xl font-semibold gradient-text hidden sm:block">
+        <h1 className="hidden sm:block text-xl font-semibold gradient-text">
           SplitSmart
         </h1>
       </div>
 
+      {/* Right: user menu or login link */}
       <div className="flex items-center gap-4">
-        {user && (
+        {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 rounded-full focus:outline-none">
+              <button
+                aria-label="User menu"
+                className="flex items-center gap-2 rounded-full focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+              >
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                  {user.avatar ? (
+                    <AvatarImage src={user.avatar} alt={user.name} />
+                  ) : (
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                  )}
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
@@ -58,22 +67,29 @@ const Navbar = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/dashboard")}>
-                Dashboard
+              {/* Use asChild + Link for client‐side nav */}
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard">Dashboard</Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/transactions")}>
-                My Transactions
+              <DropdownMenuItem asChild>
+                <Link href="/transactions">My Transactions</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
+              {/* Use onSelect for Radix menu item callbacks */}
+              <DropdownMenuItem onSelect={handleSignOut}>
                 Log Out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        ) : (
+          <Link
+            href="/signin"
+            className="text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+          >
+            Log In
+          </Link>
         )}
       </div>
     </header>
   );
-};
-
-export default Navbar;
+}

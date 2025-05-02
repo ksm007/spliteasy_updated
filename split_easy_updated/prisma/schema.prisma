@@ -8,24 +8,28 @@ datasource db {
 }
 
 model User {
-  firebaseUid String?  @unique
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  email       String   @unique
+  firebaseUid String?   @unique
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  email       String    @unique
   name        String?
   password    String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  receipts    Receipt[] // Add this relation field
 }
 
 model Receipt {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  subtotal     Float
-  tax          Float
-  tip          Float
-  total        Float
-  items        Item[]
-  participants Participant[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String        @db.ObjectId // Add this relation scalar field
+  user            User          @relation(fields: [userId], references: [id]) // Add this relation
+  subtotal        Float
+  tax             Float
+  tip             Float
+  total           Float
+  items           Item[]
+  participants    Participant[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  isFullyAssigned Boolean       @default(false)
 }
 
 model Item {

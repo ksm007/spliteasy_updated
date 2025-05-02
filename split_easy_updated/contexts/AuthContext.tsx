@@ -48,24 +48,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Update your AuthContext.tsx
+
+  // Add this function to your AuthContext
+  const setServerSession = async () => {
+    try {
+      const user = auth.currentUser;
+      // Get fresh token
+      const idToken = await user.getIdToken(true);
+
+      // Send to backend to create session cookie
+      const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create session");
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error setting session:", error);
+      return false;
+    }
+  };
+
+  // Modify your onAuthStateChanged callback to create a session
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        // 🔄 Force-refresh the ID token so it's always fresh
-        const idToken = await fbUser.getIdToken(/* forceRefresh= */ true);
-        console.log(
-          "⏩ Sending to /api/auth/saveUser, token:",
-          idToken.slice(0, 20) + "…"
-        );
+        // Get a fresh ID token
+        const user = auth.currentUser;
+        // Get fresh token
+        const idToken = await user.getIdToken(true);
+        // const idToken = await fbUser.getIdToken(true);
 
-        const localUser: User = {
-          id: fbUser.uid,
-          name: fbUser.displayName,
-          email: fbUser.email,
-          avatar: fbUser.photoURL,
-        };
-        setUser(localUser);
+        // Set session cookie
+        await setServerSession();
 
+        // Save user to database
         try {
           await fetch("/api/auth/saveUser", {
             method: "POST",
@@ -80,13 +105,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             }),
           });
         } catch (e) {
-          console.error("❌ Failed to save user to backend:", e);
+          console.error("Failed to save user to backend:", e);
         }
+
+        const localUser: User = {
+          id: fbUser.uid,
+          name: fbUser.displayName,
+          email: fbUser.email,
+          avatar: fbUser.photoURL,
+        };
+        setUser(localUser);
       } else {
         setUser(null);
+
+        // Clear session when signed out
+        await fetch("/api/auth/logout", { method: "POST" });
       }
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 

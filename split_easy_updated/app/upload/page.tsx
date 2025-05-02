@@ -14,13 +14,21 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Loader2, ChevronRight, ImageIcon } from "lucide-react";
+import {
+  Upload,
+  Loader2,
+  ChevronRight,
+  ImageIcon,
+  Lock,
+  Unlock,
+} from "lucide-react";
 
 import { ReceiptItem, ParsedReceipt, Participant } from "@/types";
-import { calculateTotals } from "./_components/utils";
+import { calculateTotals, getIdToken, getItemTotal } from "./_components/utils";
 import ReceiptTable from "./_components/ReceiptTable";
 import ParticipantManager from "./_components/ParticipanyManager";
 import CostBreakdown from "./_components/CostBreakdown";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function UploadReceipt() {
   const [file, setFile] = useState<File | null>(null);
@@ -34,7 +42,10 @@ export default function UploadReceipt() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
+  // Toggle function
+  const toggleReadOnly = () => setIsReadOnly((prev) => !prev);
   // Add event listener for the "addNewReceiptItem" custom event
   useEffect(() => {
     const handleAddNewReceiptItem = (event: CustomEvent) => {
@@ -42,11 +53,17 @@ export default function UploadReceipt() {
     };
 
     // Add event listener with type assertion for proper TypeScript typing
-    window.addEventListener('addNewReceiptItem', handleAddNewReceiptItem as EventListener);
+    window.addEventListener(
+      "addNewReceiptItem",
+      handleAddNewReceiptItem as EventListener
+    );
 
     // Clean up the event listener when component unmounts
     return () => {
-      window.removeEventListener('addNewReceiptItem', handleAddNewReceiptItem as EventListener);
+      window.removeEventListener(
+        "addNewReceiptItem",
+        handleAddNewReceiptItem as EventListener
+      );
     };
   }, [parsed]); // Re-add listener when parsed changes to ensure current state is used
 
@@ -56,10 +73,10 @@ export default function UploadReceipt() {
 
     // Create a new array of items with the new item added
     const updatedItems = [...parsed.items, newItem];
-    
+
     // Recalculate totals
     const { subtotal } = calculateTotals(updatedItems);
-    
+
     // Update the parsed receipt with the new item and recalculated totals
     setParsed({
       ...parsed,
@@ -78,13 +95,13 @@ export default function UploadReceipt() {
   // Function to delete a receipt item from the parsed receipt
   const deleteReceiptItem = (index: number) => {
     if (!parsed) return;
-    
+
     // Filter out the item at the specified index
     const updatedItems = parsed.items.filter((_, i) => i !== index);
-    
+
     // Recalculate totals
     const { subtotal } = calculateTotals(updatedItems);
-    
+
     // Update the parsed receipt with the filtered items and recalculated totals
     setParsed({
       ...parsed,
@@ -195,7 +212,7 @@ export default function UploadReceipt() {
           assignments: [], // Initialize empty assignments for each item
         })),
       };
-      
+
       setParsed(modifiedResult);
       setProgress(100);
       setActiveTab("receipt"); // Switch to receipt tab after successful processing
@@ -218,15 +235,18 @@ export default function UploadReceipt() {
     }
   };
 
-  const updateReceiptItem = (index: number, updatedFields: Partial<ReceiptItem>) => {
+  const updateReceiptItem = (
+    index: number,
+    updatedFields: Partial<ReceiptItem>
+  ) => {
     if (!parsed) return;
-    
+
     const updatedItems = [...parsed.items];
     updatedItems[index] = { ...updatedItems[index], ...updatedFields };
-    
+
     // Recalculate totals
     const { subtotal } = calculateTotals(updatedItems);
-    
+
     setParsed({
       ...parsed,
       items: updatedItems,
@@ -237,11 +257,13 @@ export default function UploadReceipt() {
 
   const updateTaxAndTip = (key: "tax" | "tip", value: number) => {
     if (!parsed) return;
-    
+
     const updates = { [key]: value };
-    const newTotal = parsed.subtotal + (key === "tax" ? value : parsed.tax) + 
-                    (key === "tip" ? value : parsed.tip);
-    
+    const newTotal =
+      parsed.subtotal +
+      (key === "tax" ? value : parsed.tax) +
+      (key === "tip" ? value : parsed.tip);
+
     setParsed({
       ...parsed,
       ...updates,
@@ -249,6 +271,186 @@ export default function UploadReceipt() {
     });
   };
 
+  // Add these functions to your component
+  const { user } = useAuth();
+  const saveReceiptData = async () => {
+    if (!parsed || participants.length === 0 || !user) {
+      toast({
+        title: "Cannot save receipt",
+        description: user
+          ? "Receipt data or participants are missing"
+          : "You must be logged in to save receipts",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if all funds are assigned
+    const allFundsAssigned = parsed.items.every((item) => {
+      const itemTotal = getItemTotal(item);
+      const assignedTotal = (item.assignments || []).reduce(
+        (sum, assignment) => sum + assignment.amount,
+        0
+      );
+      return Math.abs(itemTotal - assignedTotal) < 0.01;
+    });
+
+    if (!allFundsAssigned) {
+      toast({
+        title: "Funds not fully assigned",
+        description:
+          "All items must be fully assigned to participants before saving",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Get a fresh ID token
+      const idToken = await getIdToken(true);
+
+      // Prepare data for saving
+      const receiptData = {
+        items: parsed.items,
+        participants: participants,
+        subtotal: parsed.subtotal,
+        tax: parsed.tax,
+        tip: parsed.tip,
+        total: parsed.total,
+      };
+
+      // Send to API endpoint
+      const response = await fetch("/api/receipt/receipts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify(receiptData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save receipt");
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: "Receipt saved",
+        description: "Your receipt has been successfully saved",
+      });
+
+      return result.receiptId;
+    } catch (error) {
+      console.error("Save error:", error);
+      toast({
+        title: "Save failed",
+        description: error.message || "Failed to save the receipt",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const fetchUserReceipts = async () => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "You must be logged in to view your receipts",
+        variant: "destructive",
+      });
+      return [];
+    }
+
+    try {
+      // Get a fresh ID token
+      const idToken = await getIdToken(true);
+
+      const response = await fetch("/api/receipt/receipts/user", {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch receipts");
+      }
+
+      const data = await response.json();
+      return data.receipts;
+    } catch (error) {
+      console.error("Fetch error:", error);
+      toast({
+        title: "Fetch failed",
+        description: error.message || "Failed to fetch your receipts",
+        variant: "destructive",
+      });
+      return [];
+    }
+  };
+
+  const fetchReceiptById = async (receiptId) => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "You must be logged in to view receipts",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      // Get a fresh ID token
+      const idToken = await getIdToken(true);
+
+      const response = await fetch(`/api/receipt/receipts/${receiptId}`, {
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch receipt");
+      }
+
+      const data = await response.json();
+
+      // Load the receipt data into your app state
+      setParsed(data.receipt);
+      setParticipants(data.receipt.participants);
+
+      toast({
+        title: "Receipt loaded",
+        description: "Receipt data loaded successfully",
+      });
+
+      return data.receipt;
+    } catch (error) {
+      console.error("Fetch error:", error);
+      toast({
+        title: "Load failed",
+        description: error.message || "Failed to load receipt",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const areAllFundsAssigned = () => {
+    if (!parsed) return false;
+
+    return parsed.items.every((item) => {
+      const itemTotal = getItemTotal(item);
+      const assignedTotal = (item.assignments || []).reduce(
+        (sum, assignment) => sum + assignment.amount,
+        0
+      );
+      return Math.abs(itemTotal - assignedTotal) < 0.01;
+    });
+  };
   const reset = () => {
     setFile(null);
     setPreview(null);
@@ -312,7 +514,9 @@ export default function UploadReceipt() {
                 ) : (
                   <div className="flex flex-col items-center py-4">
                     <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                    <p className="font-medium">Drag & drop or click to upload</p>
+                    <p className="font-medium">
+                      Drag & drop or click to upload
+                    </p>
                     <p className="text-sm text-muted-foreground mt-1">
                       Supports JPEG, PNG, and other image formats
                     </p>
@@ -371,14 +575,56 @@ export default function UploadReceipt() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">Receipt Details</h2>
+                  <Button
+                    variant="outline"
+                    onClick={toggleReadOnly}
+                    className="flex items-center gap-2"
+                  >
+                    {isReadOnly ? (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        <span>Read-only</span>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="h-4 w-4" />
+                        <span>Editable</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
                 <ReceiptTable
                   receipt={parsed}
                   updateReceiptItem={updateReceiptItem}
-                  deleteReceiptItem={deleteReceiptItem} // Added delete function
+                  deleteReceiptItem={deleteReceiptItem}
                   participants={participants}
                   updateTaxAndTip={updateTaxAndTip}
+                  isReadOnly={isReadOnly}
                 />
               </CardContent>
+              <CardFooter className="flex justify-end gap-2">
+                {parsed && (
+                  <Button
+                    onClick={saveReceiptData}
+                    disabled={
+                      !parsed ||
+                      participants.length === 0 ||
+                      !areAllFundsAssigned()
+                    }
+                  >
+                    Save Receipt
+                  </Button>
+                )}
+
+                {parsed && !areAllFundsAssigned() && (
+                  <p className="text-sm text-destructive">
+                    All funds must be assigned to participants before saving
+                  </p>
+                )}
+              </CardFooter>
             </Card>
           )}
         </TabsContent>
@@ -400,12 +646,9 @@ export default function UploadReceipt() {
                   />
                 </CardContent>
               </Card>
-              
+
               {participants.length > 0 && (
-                <CostBreakdown 
-                  receipt={parsed}
-                  participants={participants}
-                />
+                <CostBreakdown receipt={parsed} participants={participants} />
               )}
             </>
           )}

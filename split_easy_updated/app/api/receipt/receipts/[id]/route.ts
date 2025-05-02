@@ -1,16 +1,30 @@
-// app/api/receipts/[id]/route.ts
+// app/api/receipt/receipts/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { authenticateRequest } from "@/lib/auth-middleware";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = params.id;
+    // Get the authenticated user data
+    const auth = await authenticateRequest(request);
 
-    const receipt = await prisma.receipt.findUnique({
-      where: { id },
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // The auth.user object likely doesn't have a 'uid' property
+    // Instead, it probably has a 'firebaseUid' property directly
+    // or the user object structure is different from what you're expecting
+
+    // Get the receipt directly using the user ID from auth
+    const receipt = await prisma.receipt.findFirst({
+      where: {
+        id: params.id,
+        userId: auth.user.id, // Use auth.user.id instead of looking up user again
+      },
       include: {
         participants: true,
         items: {
@@ -26,10 +40,13 @@ export async function GET(
     });
 
     if (!receipt) {
-      return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Receipt not found or you don't have access" },
+        { status: 404 }
+      );
     }
 
-    // Transform the data to match your frontend model
+    // Transform data for frontend compatibility
     const transformedReceipt = {
       ...receipt,
       items: receipt.items.map((item) => ({
