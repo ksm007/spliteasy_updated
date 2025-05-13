@@ -27,6 +27,8 @@ import {
   Participant,
   ReceiptItem,
 } from "@/types";
+import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
+import ReceiptPdfDocument from "./ReceiptPDFDoc";
 
 interface ReceiptTableProps {
   receipt: ParsedReceipt;
