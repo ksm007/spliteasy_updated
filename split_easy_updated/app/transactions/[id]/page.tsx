@@ -58,7 +58,7 @@ export default function TransactionDetailPage({ params }) {
 
   useEffect(() => {
     if (user) fetchTransactionById();
-    else router.push("/login");
+    else router.push("/signin");
   }, [user, id]);
 
   if (!user) {

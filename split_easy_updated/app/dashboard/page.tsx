@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -12,40 +12,59 @@ import { Button } from "../../components/ui/button";
 import { Upload, ReceiptText, Users, Clock, Plus } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "../../contexts/AuthContext";
-
-// Mock recent transactions
-const recentTransactions = [
-  {
-    id: "1",
-    title: "Dinner at Italiano",
-    date: "2025-04-27",
-    total: 120.75,
-    participants: 4,
-    status: "settled",
-  },
-  {
-    id: "2",
-    title: "Grocery Shopping",
-    date: "2025-04-25",
-    total: 87.32,
-    participants: 2,
-    status: "pending",
-  },
-  {
-    id: "3",
-    title: "Movie Night",
-    date: "2025-04-20",
-    total: 45.0,
-    participants: 3,
-    status: "pending",
-  },
-];
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { formatCurrency, getIdToken } from "../upload/_components/utils";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // Mock recent transactions
+  const fetchTransactions = async () => {
+    if (!user) return;
+    try {
+      setLoading(true);
+      const idToken = await getIdToken(true);
+      const response = await fetch("/api/receipt/receipts", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch transactions");
+      }
+      const data = await response.json();
+      setTransactions(data.receipts);
+      console.log("Fetched transactions:", data.receipts);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load your transactions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const totalOwed = 67.45;
-  const totalYouOwe = 23.18;
+  // Handle selecting a transaction
+  const handleSelectTransaction = (id) => {
+    router.push(`/transactions/${id}`);
+  };
+
+  // Fetch transactions when the component mounts
+  useEffect(() => {
+    if (user) {
+      fetchTransactions();
+    } else {
+      router.push("/signin");
+    }
+  }, [user]);
 
   return (
     <div className="space-y-8">
@@ -59,7 +78,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 gap-4">
         <Link href="/upload">
           <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
             <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 h-full">
@@ -76,7 +95,7 @@ const Dashboard = () => {
           </Card>
         </Link>
 
-        <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
+        {/* <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
           <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 h-full">
             <div className="bg-primary/10 p-3 rounded-full">
               <Users className="h-6 w-6 text-primary" />
@@ -88,7 +107,7 @@ const Dashboard = () => {
               </p>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Link href="/transactions">
           <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
@@ -108,8 +127,8 @@ const Dashboard = () => {
       </div>
 
       {/* Balance Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
+      <div className="flex flex-col gap-4">
+        {/* <Card>
           <CardHeader className="pb-3">
             <CardTitle>Balance Summary</CardTitle>
             <CardDescription>Overview of your expenses</CardDescription>
@@ -146,7 +165,7 @@ const Dashboard = () => {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -161,51 +180,37 @@ const Dashboard = () => {
             </Link>
           </CardHeader>
           <CardContent>
-            {recentTransactions.length > 0 ? (
+            {transactions.length > 0 ? (
               <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div
+                {transactions.map((transaction) => (
+                  <Card
                     key={transaction.id}
-                    className="flex items-center justify-between"
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-full">
-                        <ReceiptText className="h-4 w-4 text-primary" />
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">
+                          {new Date(transaction.createdAt).toLocaleDateString()}
+                        </CardTitle>
+                        <span className="text-lg font-bold">
+                          {formatCurrency(transaction.total)}
+                        </span>
                       </div>
-                      <div>
-                        <p className="font-medium text-sm">
-                          {transaction.title}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </p>
-                          <span className="text-xs text-muted-foreground">
-                            •
-                          </span>
-                          <p className="text-xs text-muted-foreground">
-                            {transaction.participants} people
-                          </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <div>
+                          {transaction.participants.length} participants
                         </div>
+                        <div>{transaction.items.length} items</div>
+                        {!transaction.isFullyAssigned && (
+                          <div className="text-amber-500 font-medium">
+                            Partially assigned
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">
-                        ${transaction.total.toFixed(2)}
-                      </p>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          transaction.status === "settled"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-amber-100 text-amber-700"
-                        }`}
-                      >
-                        {transaction.status === "settled"
-                          ? "Settled"
-                          : "Pending"}
-                      </span>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             ) : (

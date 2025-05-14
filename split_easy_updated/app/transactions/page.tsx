@@ -56,7 +56,7 @@ export default function TransactionsPage() {
     if (user) {
       fetchTransactions();
     } else {
-      router.push("/login");
+      router.push("/signin");
     }
   }, [user]);
 
