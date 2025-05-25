@@ -1,3 +1,4 @@
+// components/UploadReceipt.tsx
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
@@ -14,14 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Upload,
-  Loader2,
-  ChevronRight,
-  ImageIcon,
-  Lock,
-  Unlock,
-} from "lucide-react";
+import { Loader2, ChevronRight, ImageIcon, Lock, Unlock } from "lucide-react";
 
 import { ReceiptItem, ParsedReceipt, Participant } from "@/types";
 import { calculateTotals, getIdToken, getItemTotal } from "./_components/utils";
@@ -38,103 +32,76 @@ export default function UploadReceipt() {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [activeTab, setActiveTab] = useState("receipt");
+  const [activeTab, setActiveTab] = useState("upload");
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-  const [isReadOnly, setIsReadOnly] = useState(false);
+  const { user } = useAuth();
 
-  // Toggle function
+  // Toggle read-only mode
   const toggleReadOnly = () => setIsReadOnly((prev) => !prev);
-  // Add event listener for the "addNewReceiptItem" custom event
+
+  // Handle custom event to add items
   useEffect(() => {
-    const handleAddNewReceiptItem = (event: CustomEvent) => {
-      addNewReceiptItem(event.detail);
+    const handleAdd = (e: CustomEvent<ReceiptItem>) => {
+      addNewReceiptItem(e.detail);
     };
-
-    // Add event listener with type assertion for proper TypeScript typing
-    window.addEventListener(
-      "addNewReceiptItem",
-      handleAddNewReceiptItem as EventListener
-    );
-
-    // Clean up the event listener when component unmounts
-    return () => {
+    window.addEventListener("addNewReceiptItem", handleAdd as EventListener);
+    return () =>
       window.removeEventListener(
         "addNewReceiptItem",
-        handleAddNewReceiptItem as EventListener
+        handleAdd as EventListener
       );
-    };
-  }, [parsed]); // Re-add listener when parsed changes to ensure current state is used
+  }, []);
 
-  // Function to add a new receipt item to the parsed receipt
+  // Add a new item with functional update
   const addNewReceiptItem = (newItem: ReceiptItem) => {
-    if (!parsed) return;
-
-    // Create a new array of items with the new item added
-    const updatedItems = [...parsed.items, newItem];
-
-    // Recalculate totals
-    const { subtotal } = calculateTotals(updatedItems);
-
-    // Update the parsed receipt with the new item and recalculated totals
-    setParsed({
-      ...parsed,
-      items: updatedItems,
-      subtotal,
-      total: subtotal + parsed.tax + parsed.tip,
+    setParsed((prev) => {
+      if (!prev) return prev;
+      const items = [...prev.items, newItem];
+      const { subtotal } = calculateTotals(items);
+      return {
+        ...prev,
+        items,
+        subtotal,
+        total: subtotal + prev.tax + prev.tip,
+      };
     });
-
-    // Show a toast notification
-    toast({
-      title: "Item Added",
-      description: "A new item has been added to the receipt",
-    });
+    toast({ title: "Item Added", description: "A new item has been added." });
   };
 
-  // Function to delete a receipt item from the parsed receipt
+  // Delete an item with functional update
   const deleteReceiptItem = (index: number) => {
-    if (!parsed) return;
-
-    // Filter out the item at the specified index
-    const updatedItems = parsed.items.filter((_, i) => i !== index);
-
-    // Recalculate totals
-    const { subtotal } = calculateTotals(updatedItems);
-
-    // Update the parsed receipt with the filtered items and recalculated totals
-    setParsed({
-      ...parsed,
-      items: updatedItems,
-      subtotal,
-      total: subtotal + parsed.tax + parsed.tip,
+    setParsed((prev) => {
+      if (!prev) return prev;
+      const items = prev.items.filter((_, i) => i !== index);
+      const { subtotal } = calculateTotals(items);
+      return {
+        ...prev,
+        items,
+        subtotal,
+        total: subtotal + prev.tax + prev.tip,
+      };
     });
-
-    // Show a toast notification
-    toast({
-      title: "Item Removed",
-      description: "An item has been removed from the receipt",
-    });
+    toast({ title: "Item Removed", description: "An item has been removed." });
   };
 
+  // File selection + preview
   const handleFileSelect = useCallback(
     (f: File) => {
       if (!f.type.startsWith("image/")) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload an image file (JPEG, PNG, etc)",
+        return toast({
+          title: "Invalid file",
+          description: "Please upload an image file.",
           variant: "destructive",
         });
-        return;
       }
-
-      // Reset states
       setFile(f);
       setParsed(null);
       setError(null);
       setProgress(0);
 
-      // Create preview
       const reader = new FileReader();
       reader.onload = () => setPreview(reader.result as string);
       reader.readAsDataURL(f);
@@ -142,92 +109,62 @@ export default function UploadReceipt() {
     [toast]
   );
 
-  // Handle drag & drop
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-  }, []);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
+  };
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-        handleFileSelect(e.dataTransfer.files[0]);
-      }
-    },
-    [handleFileSelect]
-  );
-
+  // Submit to OCR API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
-      toast({
-        title: "No file selected",
-        description: "Please select an image to process",
+      return toast({
+        title: "No file",
+        description: "Select an image first.",
         variant: "destructive",
       });
-      return;
     }
-
     setProcessing(true);
     setError(null);
     setProgress(0);
-
     try {
-      // Show processing in progress
       setProgress(25);
-
-      // Convert file to base64
-      const arrayBuffer = await file.arrayBuffer();
-      const base64String = Buffer.from(arrayBuffer).toString("base64");
-
+      const buf = await file.arrayBuffer();
+      const b64 = Buffer.from(buf).toString("base64");
       setProgress(50);
-
-      // Send to our API
       const res = await fetch("/api/receipt/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: base64String,
-          mimeType: file.type,
-        }),
+        body: JSON.stringify({ image: b64, mimeType: file.type }),
       });
-
       setProgress(90);
-
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to process receipt");
+        const { error } = await res.json();
+        throw new Error(error || "Processing failed");
       }
-
-      // Modify the API response to include our new isMultiplied field
       const result = await res.json();
-      const modifiedResult = {
+      const modified: ParsedReceipt = {
         ...result,
-        items: result.items.map((item: any) => ({
-          ...item,
-          isMultiplied: false, // Default to false for all items
-          assignments: [], // Initialize empty assignments for each item
+        items: result.items.map((it: any) => ({
+          ...it,
+          isMultiplied: false,
+          assignments: [],
         })),
       };
-
-      setParsed(modifiedResult);
+      setParsed(modified);
       setProgress(100);
-      setActiveTab("receipt"); // Switch to receipt tab after successful processing
-
-      toast({
-        title: "Receipt processed",
-        description: "Your receipt has been successfully parsed",
-        variant: "default",
-      });
+      setActiveTab("receipt");
+      toast({ title: "Parsed", description: "Receipt parsed successfully." });
     } catch (err: any) {
-      console.error("Processing error:", err);
-      setError(err.message || "An unexpected error occurred");
+      setError(err.message);
       toast({
-        title: "Processing failed",
-        description: err.message || "Failed to process the receipt",
+        title: "Error",
+        description: err.message || "Unexpected error",
         variant: "destructive",
       });
     } finally {
@@ -235,222 +172,105 @@ export default function UploadReceipt() {
     }
   };
 
+  // Update an item (controlled inputs)
   const updateReceiptItem = (
     index: number,
     updatedFields: Partial<ReceiptItem>
   ) => {
-    if (!parsed) return;
-
-    const updatedItems = [...parsed.items];
-    updatedItems[index] = { ...updatedItems[index], ...updatedFields };
-
-    // Recalculate totals
-    const { subtotal } = calculateTotals(updatedItems);
-
-    setParsed({
-      ...parsed,
-      items: updatedItems,
-      subtotal,
-      total: subtotal + parsed.tax + parsed.tip,
+    setParsed((prev) => {
+      if (!prev) return prev;
+      const items = prev.items.map((it, i) =>
+        i === index ? { ...it, ...updatedFields } : it
+      );
+      const { subtotal } = calculateTotals(items);
+      return {
+        ...prev,
+        items,
+        subtotal,
+        total: subtotal + prev.tax + prev.tip,
+      };
     });
   };
 
+  // Update tax or tip
   const updateTaxAndTip = (key: "tax" | "tip", value: number) => {
-    if (!parsed) return;
-
-    const updates = { [key]: value };
-    const newTotal =
-      parsed.subtotal +
-      (key === "tax" ? value : parsed.tax) +
-      (key === "tip" ? value : parsed.tip);
-
-    setParsed({
-      ...parsed,
-      ...updates,
-      total: newTotal,
+    setParsed((prev) => {
+      if (!prev) return prev;
+      const updates = { [key]: value } as const;
+      const subtotal = prev.subtotal;
+      const total =
+        subtotal +
+        (key === "tax" ? value : prev.tax) +
+        (key === "tip" ? value : prev.tip);
+      return { ...prev, ...updates, total };
     });
   };
 
-  // Add these functions to your component
-  const { user } = useAuth();
-  const saveReceiptData = async () => {
-    if (!parsed || participants.length === 0 || !user) {
-      toast({
-        title: "Cannot save receipt",
-        description: user
-          ? "Receipt data or participants are missing"
-          : "You must be logged in to save receipts",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if all funds are assigned
-    const allFundsAssigned = parsed.items.every((item) => {
-      const itemTotal = getItemTotal(item);
-      const assignedTotal = (item.assignments || []).reduce(
-        (sum, assignment) => sum + assignment.amount,
+  // Check fully assigned with epsilon
+  const areAllFundsAssigned = () => {
+    if (!parsed) return false;
+    return parsed.items.every((item) => {
+      const total = getItemTotal(item);
+      const assigned = (item.assignments || []).reduce(
+        (s, a) => s + a.amount,
         0
       );
-      return Math.abs(itemTotal - assignedTotal) < 0.01;
+      return Math.abs(total - assigned) < 0.01;
     });
+  };
 
-    if (!allFundsAssigned) {
-      toast({
-        title: "Funds not fully assigned",
-        description:
-          "All items must be fully assigned to participants before saving",
+  // Save to backend
+  const saveReceiptData = async () => {
+    if (!parsed || participants.length === 0 || !user) {
+      return toast({
+        title: "Cannot save",
+        description: parsed
+          ? "Add participants and assign funds"
+          : "Parse a receipt first",
         variant: "destructive",
       });
-      return;
     }
-
+    if (!areAllFundsAssigned()) {
+      return toast({
+        title: "Incomplete",
+        description: "Every item must be fully assigned",
+        variant: "destructive",
+      });
+    }
     try {
-      // Get a fresh ID token
-      const idToken = await getIdToken(true);
-
-      // Prepare data for saving
-      const receiptData = {
+      const token = await getIdToken(true);
+      const payload = {
         items: parsed.items,
-        participants: participants,
+        participants,
         subtotal: parsed.subtotal,
         tax: parsed.tax,
         tip: parsed.tip,
         total: parsed.total,
       };
-
-      // Send to API endpoint
-      const response = await fetch("/api/receipt/receipts", {
+      const res = await fetch("/api/receipt/receipts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${idToken}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(receiptData),
+        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save receipt");
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error || "Save failed");
       }
-
-      const result = await response.json();
-
+      await res.json();
+      toast({ title: "Saved", description: "Receipt saved successfully." });
+    } catch (err: any) {
       toast({
-        title: "Receipt saved",
-        description: "Your receipt has been successfully saved",
-      });
-
-      return result.receiptId;
-    } catch (error) {
-      console.error("Save error:", error);
-      toast({
-        title: "Save failed",
-        description: error.message || "Failed to save the receipt",
+        title: "Error",
+        description: err.message,
         variant: "destructive",
       });
-      return null;
     }
   };
 
-  const fetchUserReceipts = async () => {
-    if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to view your receipts",
-        variant: "destructive",
-      });
-      return [];
-    }
-
-    try {
-      // Get a fresh ID token
-      const idToken = await getIdToken(true);
-
-      const response = await fetch("/api/receipt/receipts/user", {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch receipts");
-      }
-
-      const data = await response.json();
-      return data.receipts;
-    } catch (error) {
-      console.error("Fetch error:", error);
-      toast({
-        title: "Fetch failed",
-        description: error.message || "Failed to fetch your receipts",
-        variant: "destructive",
-      });
-      return [];
-    }
-  };
-
-  const fetchReceiptById = async (receiptId) => {
-    if (!user) {
-      toast({
-        title: "Not logged in",
-        description: "You must be logged in to view receipts",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    try {
-      // Get a fresh ID token
-      const idToken = await getIdToken(true);
-
-      const response = await fetch(`/api/receipt/receipts/${receiptId}`, {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch receipt");
-      }
-
-      const data = await response.json();
-
-      // Load the receipt data into your app state
-      setParsed(data.receipt);
-      setParticipants(data.receipt.participants);
-
-      toast({
-        title: "Receipt loaded",
-        description: "Receipt data loaded successfully",
-      });
-
-      return data.receipt;
-    } catch (error) {
-      console.error("Fetch error:", error);
-      toast({
-        title: "Load failed",
-        description: error.message || "Failed to load receipt",
-        variant: "destructive",
-      });
-      return null;
-    }
-  };
-
-  const areAllFundsAssigned = () => {
-    if (!parsed) return false;
-
-    return parsed.items.every((item) => {
-      const itemTotal = getItemTotal(item);
-      const assignedTotal = (item.assignments || []).reduce(
-        (sum, assignment) => sum + assignment.amount,
-        0
-      );
-      return Math.abs(itemTotal - assignedTotal) < 0.01;
-    });
-  };
+  // Reset everything
   const reset = () => {
     setFile(null);
     setPreview(null);
@@ -473,6 +293,7 @@ export default function UploadReceipt() {
           </TabsTrigger>
         </TabsList>
 
+        {/* UPLOAD TAB */}
         <TabsContent value="upload" className="mt-4">
           <Card>
             <CardHeader>
@@ -491,9 +312,8 @@ export default function UploadReceipt() {
                   e.target.files?.[0] && handleFileSelect(e.target.files[0])
                 }
               />
-
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer ${
                   preview ? "" : "hover:bg-accent/50"
                 }`}
                 onClick={() => fileRef.current?.click()}
@@ -501,30 +321,20 @@ export default function UploadReceipt() {
                 onDrop={handleDrop}
               >
                 {preview ? (
-                  <div className="flex flex-col items-center">
-                    <img
-                      src={preview}
-                      alt="Receipt preview"
-                      className="mx-auto max-h-64 object-contain"
-                    />
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Click to select a different image
-                    </p>
-                  </div>
+                  <img
+                    src={preview}
+                    alt="Receipt preview"
+                    className="mx-auto max-h-64 object-contain"
+                  />
                 ) : (
-                  <div className="flex flex-col items-center py-4">
+                  <div>
                     <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground mb-2" />
-                    <p className="font-medium">
-                      Drag & drop or click to upload
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Supports JPEG, PNG, and other image formats
-                    </p>
+                    <p>Drag & drop or click to upload</p>
                   </div>
                 )}
               </div>
 
-              {processing && progress > 0 && (
+              {processing && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Processing</span>
@@ -565,6 +375,7 @@ export default function UploadReceipt() {
           </Card>
         </TabsContent>
 
+        {/* RECEIPT TAB */}
         <TabsContent value="receipt" className="mt-4">
           {parsed && (
             <Card>
@@ -583,16 +394,11 @@ export default function UploadReceipt() {
                     className="flex items-center gap-2"
                   >
                     {isReadOnly ? (
-                      <>
-                        <Lock className="h-4 w-4" />
-                        <span>Read-only</span>
-                      </>
+                      <Lock className="h-4 w-4" />
                     ) : (
-                      <>
-                        <Unlock className="h-4 w-4" />
-                        <span>Editable</span>
-                      </>
+                      <Unlock className="h-4 w-4" />
                     )}
+                    {isReadOnly ? "Read-only" : "Editable"}
                   </Button>
                 </div>
 
@@ -606,22 +412,15 @@ export default function UploadReceipt() {
                 />
               </CardContent>
               <CardFooter className="flex justify-end gap-2">
-                {parsed && (
-                  <Button
-                    onClick={saveReceiptData}
-                    disabled={
-                      !parsed ||
-                      participants.length === 0 ||
-                      !areAllFundsAssigned()
-                    }
-                  >
-                    Save Receipt
-                  </Button>
-                )}
-
-                {parsed && !areAllFundsAssigned() && (
+                <Button
+                  onClick={saveReceiptData}
+                  disabled={!areAllFundsAssigned() || participants.length === 0}
+                >
+                  Save Receipt
+                </Button>
+                {!areAllFundsAssigned() && (
                   <p className="text-sm text-destructive">
-                    All funds must be assigned to participants before saving
+                    All funds must be assigned before saving
                   </p>
                 )}
               </CardFooter>
@@ -629,6 +428,7 @@ export default function UploadReceipt() {
           )}
         </TabsContent>
 
+        {/* PARTICIPANTS TAB */}
         <TabsContent value="participants" className="mt-4 space-y-4">
           {parsed && (
             <>
@@ -636,7 +436,7 @@ export default function UploadReceipt() {
                 <CardHeader>
                   <CardTitle>Split Receipt</CardTitle>
                   <CardDescription>
-                    Add participants and assign items to them
+                    Add participants and assign items
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -646,7 +446,6 @@ export default function UploadReceipt() {
                   />
                 </CardContent>
               </Card>
-
               {participants.length > 0 && (
                 <CostBreakdown receipt={parsed} participants={participants} />
               )}

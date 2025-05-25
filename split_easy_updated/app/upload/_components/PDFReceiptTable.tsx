@@ -1,13 +1,12 @@
 // PdfReceiptTable.js
 import React from "react";
 import { Page, Text, View, Document, StyleSheet } from "@react-pdf/renderer";
-
-// Utility functions (implement or import as in your codebase)
 import { formatCurrency, getItemTotal } from "./utils";
 
 const styles = StyleSheet.create({
   table: {
     display: "flex",
+    flexDirection: "column",
     width: "auto",
     borderStyle: "solid",
     borderWidth: 1,
@@ -40,40 +39,47 @@ const styles = StyleSheet.create({
     minWidth: 80,
     maxWidth: 120,
     textAlign: "left",
+    flexWrap: "wrap", // allow multi-line
   },
   wideCell: {
     minWidth: 240,
     maxWidth: 260,
+    flexWrap: "wrap",
   },
   right: {
     textAlign: "right",
   },
 });
+
 const columns = [
   {
     header: "Description",
     accessor: "description",
     style: [styles.cell, styles.wideCell],
   },
-  { header: "Assigned To", accessor: "assignedTo", style: styles.cell },
+  {
+    header: "Assigned To",
+    accessor: "assignedTo",
+    style: [styles.cell, styles.wideCell],
+  },
   { header: "Qty", accessor: "quantity", style: [styles.cell, styles.right] },
   { header: "Price", accessor: "price", style: [styles.cell, styles.right] },
   { header: "Total", accessor: "total", style: [styles.cell, styles.right] },
 ];
 
 const PdfReceiptTable = ({ receipt, participants }) => {
-  // Prepare rows as per your logic, using formatCurrency/getItemTotal as needed
+  // Build each row including the per-participant split
   const rows = receipt.items.map((item) => {
-    const assignedNames = (item.assignments || [])
-      .map((a) => {
-        const p = participants.find((p) => p.id === a.participantId);
-        return p ? p.name : "";
-      })
-      .filter(Boolean)
-      .join(", ");
+    // For each assignment, format "Name: $X.XX"
+    const assignedLines = (item.assignments || []).map((a) => {
+      const p = participants.find((p) => p.id === a.participantId);
+      const name = p ? p.name : "Unknown";
+      return `${name}: ${formatCurrency(a.amount)}`;
+    });
+
     return {
       description: item.description,
-      assignedTo: assignedNames,
+      assignedTo: assignedLines.join("\n"), // newline-separated
       quantity: item.quantity,
       price: formatCurrency(item.price),
       total: formatCurrency(getItemTotal(item)),
@@ -84,13 +90,14 @@ const PdfReceiptTable = ({ receipt, participants }) => {
     <View style={styles.table}>
       {/* Header */}
       <View style={[styles.row, styles.header]}>
-        {columns.map((col, idx) => (
-          <Text key={idx} style={col.style}>
+        {columns.map((col, i) => (
+          <Text key={i} style={col.style}>
             {col.header}
           </Text>
         ))}
       </View>
-      {/* Rows */}
+
+      {/* Data rows */}
       {rows.map((row, rowIdx) => (
         <View key={rowIdx} style={styles.row}>
           {columns.map((col, colIdx) => (

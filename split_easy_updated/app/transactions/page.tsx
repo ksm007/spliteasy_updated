@@ -1,5 +1,6 @@
 // app/transactions/page.tsx
 "use client";
+
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,37 +9,44 @@ import { formatCurrency, getIdToken } from "@/app/upload/_components/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function TransactionsPage() {
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all transactions for the user
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [toDeleteId, setToDeleteId] = useState<string | null>(null);
+  const [toDeleteLabel, setToDeleteLabel] = useState<string>("");
+
+  // Fetch all transactions
   const fetchTransactions = async () => {
     if (!user) return;
+    setLoading(true);
     try {
-      setLoading(true);
       const idToken = await getIdToken(true);
-      const response = await fetch("/api/receipt/receipts", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
+      const res = await fetch("/api/receipt/receipts", {
+        headers: { Authorization: `Bearer ${idToken}` },
       });
-      if (!response.ok) {
-        throw new Error("Failed to fetch transactions");
-      }
-      const data = await response.json();
+      if (!res.ok) throw new Error();
+      const data = await res.json();
       setTransactions(data.receipts);
-      console.log("Fetched transactions:", data.receipts);
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
+    } catch {
       toast({
         title: "Error",
-        description: "Failed to load your transactions",
+        description: "Failed to load transactions",
         variant: "destructive",
       });
     } finally {
@@ -46,73 +54,66 @@ export default function TransactionsPage() {
     }
   };
 
-  // Handle selecting a transaction
-  const handleSelectTransaction = (id) => {
-    router.push(`/transactions/${id}`);
+  // Delete a single transaction
+  const deleteTransaction = async () => {
+    if (!toDeleteId) return;
+    try {
+      const idToken = await getIdToken(true);
+      const res = await fetch(`/api/receipt/receipts/${toDeleteId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      if (!res.ok) throw new Error();
+      toast({ title: "Deleted", description: "Transaction removed." });
+      setIsDialogOpen(false);
+      setToDeleteId(null);
+      fetchTransactions();
+    } catch {
+      toast({
+        title: "Error",
+        description: "Could not delete",
+        variant: "destructive",
+      });
+    }
   };
 
-  // Fetch transactions when the component mounts
-  useEffect(() => {
-    if (user) {
-      fetchTransactions();
-    } else {
-      router.push("/signin");
-    }
-  }, [user]);
-
-  if (!user) {
-    return (
-      <div className="text-center py-8">
-        Please log in to view your transactions
-      </div>
+  // When user right‐clicks, open the dialog
+  const handleContextMenu = (e: React.MouseEvent, tx: any) => {
+    e.preventDefault();
+    setToDeleteId(tx.id);
+    setToDeleteLabel(
+      `${new Date(tx.createdAt).toLocaleDateString()} — ${formatCurrency(
+        tx.total
+      )}`
     );
-  }
+    setIsDialogOpen(true);
+  };
 
-  return (
-    <div className="container py-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Your Transaction History</h1>
-      {loading ? (
-        <div className="text-center py-8">
-          <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4" />
-          <p>Loading...</p>
-        </div>
-      ) : transactions.length > 0 ? (
-        <TransactionList
-          transactions={transactions}
-          onSelectTransaction={handleSelectTransaction}
-        />
-      ) : (
-        <EmptyState router={router} />
-      )}
-    </div>
-  );
-}
-
-// Transaction list component
-function TransactionList({ transactions, onSelectTransaction }) {
-  return (
+  // List of cards
+  const TransactionList = () => (
     <div className="space-y-4">
-      {transactions.map((transaction) => (
+      {transactions.map((tx) => (
         <Card
-          key={transaction.id}
+          key={tx.id}
           className="cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => onSelectTransaction(transaction.id)}
+          onClick={() => router.push(`/transactions/${tx.id}`)}
+          onContextMenu={(e) => handleContextMenu(e, tx)}
         >
           <CardHeader className="pb-2">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">
-                {new Date(transaction.createdAt).toLocaleDateString()}
+                {new Date(tx.createdAt).toLocaleDateString()}
               </CardTitle>
               <span className="text-lg font-bold">
-                {formatCurrency(transaction.total)}
+                {formatCurrency(tx.total)}
               </span>
             </div>
           </CardHeader>
           <CardContent>
             <div className="flex justify-between text-sm text-muted-foreground">
-              <div>{transaction.participants.length} participants</div>
-              <div>{transaction.items.length} items</div>
-              {!transaction.isFullyAssigned && (
+              <div>{tx.participants.length} participants</div>
+              <div>{tx.items.length} items</div>
+              {!tx.isFullyAssigned && (
                 <div className="text-amber-500 font-medium">
                   Partially assigned
                 </div>
@@ -123,20 +124,66 @@ function TransactionList({ transactions, onSelectTransaction }) {
       ))}
     </div>
   );
-}
 
-// Empty state component
-function EmptyState({ router }) {
-  return (
+  // Empty state
+  const EmptyState = () => (
     <div className="text-center py-12 border rounded-lg bg-muted/20">
       <Receipt className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
       <h3 className="text-xl font-medium mb-2">No transactions yet</h3>
       <p className="text-muted-foreground mb-6">
-        You haven't created any receipts yet. Create one to get started.
+        You haven't created any receipts yet.
       </p>
       <Button onClick={() => router.push("/receipt")}>
         Create a new receipt
       </Button>
+    </div>
+  );
+
+  useEffect(() => {
+    if (user) fetchTransactions();
+    else router.push("/signin");
+  }, [user]);
+
+  if (!user)
+    return (
+      <div className="text-center py-8">Please log in to view transactions</div>
+    );
+
+  return (
+    <div className="container py-8 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Your Transaction History</h1>
+
+      {loading ? (
+        <div className="text-center py-8">
+          <Loader2 className="animate-spin h-8 w-8 mx-auto mb-4" />
+          <p>Loading...</p>
+        </div>
+      ) : transactions.length > 0 ? (
+        <TransactionList />
+      ) : (
+        <EmptyState />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Transaction?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{toDeleteLabel}</strong>?
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="space-x-2">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={deleteTransaction}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
