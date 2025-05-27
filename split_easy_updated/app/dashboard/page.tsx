@@ -38,7 +38,6 @@ const Dashboard = () => {
       }
       const data = await response.json();
       setTransactions(data.receipts);
-      console.log("Fetched transactions:", data.receipts);
     } catch (error) {
       console.error("Error fetching transactions:", error);
       toast({

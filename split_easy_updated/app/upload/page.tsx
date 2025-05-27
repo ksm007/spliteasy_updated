@@ -172,7 +172,7 @@ export default function UploadReceipt() {
       };
       setParsed(modified);
       setProgress(100);
-      setActiveTab("receipt");
+      setActiveTab("participants");
       toast({ title: "Parsed", description: "Receipt parsed successfully." });
     } catch (err: any) {
       setError(err.message);
@@ -299,11 +299,11 @@ export default function UploadReceipt() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="upload">Upload</TabsTrigger>
-          <TabsTrigger value="receipt" disabled={!parsed}>
-            Receipt Details
-          </TabsTrigger>
           <TabsTrigger value="participants" disabled={!parsed}>
             Participants
+          </TabsTrigger>
+          <TabsTrigger value="receipt" disabled={!parsed}>
+            Receipt Details
           </TabsTrigger>
         </TabsList>
 
@@ -388,7 +388,30 @@ export default function UploadReceipt() {
             </CardFooter>
           </Card>
         </TabsContent>
-
+        {/* PARTICIPANTS TAB */}
+        <TabsContent value="participants" className="mt-4 space-y-4">
+          {parsed && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Split Receipt</CardTitle>
+                  <CardDescription>
+                    Add participants and assign items
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ParticipantManager
+                    participants={participants}
+                    setParticipants={setParticipants}
+                  />
+                </CardContent>
+              </Card>
+              {participants.length > 0 && (
+                <CostBreakdown receipt={parsed} participants={participants} />
+              )}
+            </>
+          )}
+        </TabsContent>
         {/* RECEIPT TAB */}
         <TabsContent value="receipt" className="mt-4">
           {parsed && (
@@ -439,31 +462,6 @@ export default function UploadReceipt() {
                 )}
               </CardFooter>
             </Card>
-          )}
-        </TabsContent>
-
-        {/* PARTICIPANTS TAB */}
-        <TabsContent value="participants" className="mt-4 space-y-4">
-          {parsed && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Split Receipt</CardTitle>
-                  <CardDescription>
-                    Add participants and assign items
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ParticipantManager
-                    participants={participants}
-                    setParticipants={setParticipants}
-                  />
-                </CardContent>
-              </Card>
-              {participants.length > 0 && (
-                <CostBreakdown receipt={parsed} participants={participants} />
-              )}
-            </>
           )}
         </TabsContent>
       </Tabs>

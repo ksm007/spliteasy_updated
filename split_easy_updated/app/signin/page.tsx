@@ -57,6 +57,37 @@ const SignIn = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      const { success, error } = await signInWithGoogle();
+      
+      if (success) {
+        router.push("/dashboard");
+      } else if (error === 'popup_blocked') {
+        // If popup was blocked, show a message to the user
+        toast({
+          title: "Popup Blocked",
+          description: "Please allow popups for this site to sign in with Google.",
+          variant: "destructive",
+        });
+      } else if (error) {
+        // Show other errors
+        toast({
+          title: "Sign In Failed",
+          description: error,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Unexpected error during Google sign-in:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -110,11 +141,12 @@ const SignIn = () => {
         {/* Google Sign-In Button */}
         <Button
           type="button"
-          onClick={signInWithGoogle}
-          disabled={loading}
-          className="w-full mt-4 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded shadow"
+          onClick={handleGoogleSignIn}
+          disabled={loading || isLoading}
+          className="w-full mt-4 flex items-center justify-center gap-2 bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold py-2 px-4 rounded shadow transition-colors duration-200"
+          variant="outline"
         >
-          <svg className="h-5 w-5" viewBox="0 0 48 48">
+          <svg className="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
             <g>
               <path
                 fill="#4285F4"
@@ -134,7 +166,16 @@ const SignIn = () => {
               />
             </g>
           </svg>
-          {loading ? "Signing in..." : "Sign in with Google"}
+          <div className="flex items-center">
+            {loading ? (
+              <>
+                <span className="inline-block h-4 w-4 border-2 border-gray-700 border-t-transparent rounded-full animate-spin mr-2" />
+                <span>Signing in...</span>
+              </>
+            ) : (
+              <span>Sign in with Google</span>
+            )}
+          </div>
         </Button>
 
         <div className="mt-4 text-center text-sm">

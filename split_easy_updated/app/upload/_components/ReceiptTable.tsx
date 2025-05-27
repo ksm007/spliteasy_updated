@@ -48,14 +48,15 @@ export default function ReceiptTable({
   // Add assignment to an item
   const addAssignment = (itemIndex: number) => {
     const item = receipt.items[itemIndex];
+    // Start from the existing assignments (or empty array)
+    const assignments = [...(item.assignments || [])];
     const remainingAmount = getRemainingAmount(item);
 
-    if (remainingAmount <= 0) return;
-
-    const assignments = [...(item.assignments || [])];
+    // Always push a new blank assignment
     assignments.push({
       participantId: "",
-      amount: remainingAmount,
+      // If there’s leftover, prefill it; otherwise start from 0
+      amount: remainingAmount > 0 ? remainingAmount : 0,
     });
 
     updateReceiptItem(itemIndex, { assignments });
@@ -212,6 +213,7 @@ export default function ReceiptTable({
                           <Input
                             type="number"
                             value={assignment.amount}
+                            min={0}
                             onChange={(e) => {
                               updateAssignment(i, assignmentIndex, {
                                 amount: parseFloat(e.target.value) || 0,
