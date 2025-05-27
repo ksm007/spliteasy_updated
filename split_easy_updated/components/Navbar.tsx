@@ -15,6 +15,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "../contexts/AuthContext";
 import { Home, Plus, History, Users, X } from "lucide-react";
+import DarkModeToggle from "./DarkModeToggle";
 
 const menuItems = [
   { title: "Dashboard", icon: Home, path: "/dashboard" },
@@ -67,22 +68,25 @@ export default function Navbar() {
       {/* Right side: desktop nav + user menu */}
       <div className="flex items-center gap-6">
         {/* Desktop nav */}
+        <DarkModeToggle />
+
         <nav className="hidden md:flex items-center space-x-4">
-          {user && menuItems.map((item) => {
-            const isActive = currentPath === item.path;
-            return (
-              <Link
-                key={item.title}
-                href={item.path}
-                className={`flex items-center gap-1 px-3 py-1 rounded-md hover:bg-gray-100 ${
-                  isActive ? "bg-gray-200 font-medium" : "text-gray-600"
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.title}
-              </Link>
-            );
-          })}
+          {user &&
+            menuItems.map((item) => {
+              const isActive = currentPath === item.path;
+              return (
+                <Link
+                  key={item.title}
+                  href={item.path}
+                  className={`flex items-center gap-1 px-3 py-1 rounded-md  ${
+                    isActive ? " font-medium" : "text-gray-600"
+                  }`}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.title}
+                </Link>
+              );
+            })}
         </nav>
 
         {/* Auth / User menu */}

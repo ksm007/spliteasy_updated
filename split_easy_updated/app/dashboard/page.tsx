@@ -22,7 +22,6 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Mock recent transactions
   const fetchTransactions = async () => {
     if (!user) return;
     try {
@@ -78,7 +77,7 @@ const Dashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 gap-4">
         <Link href="/upload">
           <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
             <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 h-full">
@@ -94,79 +93,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </Link>
-
-        {/* <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-          <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 h-full">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <Users className="h-6 w-6 text-primary" />
-            </div>
-            <div className="text-center">
-              <p className="font-medium">Manage Friends</p>
-              <p className="text-sm text-muted-foreground">
-                Add or remove friends
-              </p>
-            </div>
-          </CardContent>
-        </Card> */}
-
-        <Link href="/transactions">
-          <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
-            <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 h-full">
-              <div className="bg-primary/10 p-3 rounded-full">
-                <Clock className="h-6 w-6 text-primary" />
-              </div>
-              <div className="text-center">
-                <p className="font-medium">Transaction History</p>
-                <p className="text-sm text-muted-foreground">
-                  View all transactions
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
       </div>
 
       {/* Balance Summary */}
       <div className="flex flex-col gap-4">
-        {/* <Card>
-          <CardHeader className="pb-3">
-            <CardTitle>Balance Summary</CardTitle>
-            <CardDescription>Overview of your expenses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    People owe you
-                  </p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ${totalOwed.toFixed(2)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-muted-foreground">You owe</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    ${totalYouOwe.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Net balance</p>
-                <p
-                  className={`text-lg font-semibold ${
-                    totalOwed - totalYouOwe > 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  ${(totalOwed - totalYouOwe).toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-0.5">
@@ -180,12 +110,18 @@ const Dashboard = () => {
             </Link>
           </CardHeader>
           <CardContent>
-            {transactions.length > 0 ? (
+            {loading && (
+              <div className="flex items-center justify-center py-6">
+                <ReceiptText className="h-10 w-10 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {!loading && transactions.length > 0 && (
               <div className="space-y-4">
                 {transactions.map((transaction) => (
                   <Card
                     key={transaction.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => handleSelectTransaction(transaction.id)}
                   >
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-center">
@@ -212,16 +148,6 @@ const Dashboard = () => {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-6 text-center">
-                <ReceiptText className="h-10 w-10 text-muted-foreground mb-3" />
-                <p className="text-muted-foreground">No recent transactions</p>
-                <Link href="/upload" className="mt-3">
-                  <Button variant="outline" size="sm" className="gap-1">
-                    <Plus className="h-4 w-4" /> Create New
-                  </Button>
-                </Link>
               </div>
             )}
           </CardContent>

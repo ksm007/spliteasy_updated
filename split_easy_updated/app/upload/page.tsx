@@ -1,7 +1,7 @@
 // components/UploadReceipt.tsx
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,8 +23,25 @@ import ReceiptTable from "./_components/ReceiptTable";
 import ParticipantManager from "./_components/ParticipanyManager";
 import CostBreakdown from "./_components/CostBreakdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 
 export default function UploadReceipt() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  useEffect(() => {
+    if (!user) {
+      router.replace("/signin");
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+      </div>
+    );
+  }
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
@@ -36,13 +53,10 @@ export default function UploadReceipt() {
   const [isReadOnly, setIsReadOnly] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
-  const { user } = useAuth();
 
   // Toggle read-only mode
   const toggleReadOnly = () => setIsReadOnly((prev) => !prev);
 
-  // Handle custom event to add items
   useEffect(() => {
     const handleAdd = (e: CustomEvent<ReceiptItem>) => {
       addNewReceiptItem(e.detail);

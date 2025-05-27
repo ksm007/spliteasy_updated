@@ -123,6 +123,7 @@ export async function GET(request: NextRequest) {
     if (!auth.authenticated) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.log(auth.user.id, "Fetching receipts for user");
 
     // Get receipts for this user
     const receipts = await prisma.receipt.findMany({
