@@ -4,8 +4,10 @@ import { join } from "path";
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-
-  // 1) Loosen COOP so popups can call window.close()
+  output: "standalone",
+  images: {
+    domains: ["lh3.googleusercontent.com", "firebasestorage.googleapis.com"],
+  },
   async headers() {
     return [
       {
