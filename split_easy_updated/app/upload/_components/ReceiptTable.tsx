@@ -27,6 +27,7 @@ import {
   Participant,
   ReceiptItem,
 } from "@/types";
+import Resizable from "@/components/Resizable";
 
 interface ReceiptTableProps {
   receipt: ParsedReceipt;
@@ -151,12 +152,62 @@ export default function ReceiptTable({
       <Table style={{ width: "100%" }}>
         <TableHeader>
           <TableRow>
-            <TableHead>Description</TableHead>
-            {participants.length > 0 && <TableHead>Assigned To</TableHead>}
-            <TableHead>Qty</TableHead>
-            <TableHead>Price</TableHead>
-            <TableHead>Multiplied?</TableHead>
-            <TableHead>Total</TableHead>
+            <Resizable>
+              {({ ref }) => (
+                <TableHead className="resizable-column">
+                  Description
+                  <div ref={ref} className="column-resizer" />
+                </TableHead>
+              )}
+            </Resizable>
+
+            {participants.length > 0 && (
+              <Resizable>
+                {({ ref }) => (
+                  <TableHead className="resizable-column">
+                    Assigned To
+                    <div ref={ref} className="column-resizer" />
+                  </TableHead>
+                )}
+              </Resizable>
+            )}
+
+            <Resizable>
+              {({ ref }) => (
+                <TableHead className="resizable-column">
+                  Qty
+                  <div ref={ref} className="column-resizer" />
+                </TableHead>
+              )}
+            </Resizable>
+
+            <Resizable>
+              {({ ref }) => (
+                <TableHead className="resizable-column">
+                  Price
+                  <div ref={ref} className="column-resizer" />
+                </TableHead>
+              )}
+            </Resizable>
+
+            <Resizable>
+              {({ ref }) => (
+                <TableHead className="resizable-column">
+                  Multiplied?
+                  <div ref={ref} className="column-resizer" />
+                </TableHead>
+              )}
+            </Resizable>
+
+            <Resizable>
+              {({ ref }) => (
+                <TableHead className="resizable-column">
+                  Total
+                  <div ref={ref} className="column-resizer" />
+                </TableHead>
+              )}
+            </Resizable>
+
             <TableHead className="w-[80px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
