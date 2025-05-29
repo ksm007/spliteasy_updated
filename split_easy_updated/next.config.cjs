@@ -4,10 +4,7 @@ import { join } from "path";
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  output: "standalone",
-  images: {
-    domains: ["lh3.googleusercontent.com", "firebasestorage.googleapis.com"],
-  },
+
   async headers() {
     return [
       {
