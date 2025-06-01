@@ -9,6 +9,8 @@ import {
   Clock,
   Smartphone,
   Zap,
+  Scan,
+  File,
 } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
@@ -23,43 +25,22 @@ const features = [
     icon: Receipt,
   },
   {
-    name: "Real-time Updates",
+    name: "Scan Receipts",
     description:
-      "See who's paid and who hasn't in real-time. Never lose track of who owes what.",
-    icon: Clock,
+      "Scan and upload receipts directly from your phone. We automatically extract the details for you.",
+    icon: Scan,
   },
   {
-    name: "Group Management",
+    name: "PDF Generation",
     description:
-      "Create groups for roommates, trips, or regular outings and manage expenses together.",
-    icon: Users,
+      "Create and download PDF summaries of your splits for easy record-keeping.",
+    icon: File,
   },
   {
     name: "Mobile Friendly",
     description:
       "Access your splits on the go with our mobile-optimized interface.",
     icon: Smartphone,
-  },
-];
-
-const testimonials = [
-  {
-    name: "Alex Johnson",
-    role: "Frequent Traveler",
-    content:
-      "SplitSmart made our group trip so much easier! No more spreadsheets or arguments about who paid for what.",
-  },
-  {
-    name: "Jordan Smith",
-    role: "College Student",
-    content:
-      "As someone who splits bills with roommates, this app has been a game-changer. Super intuitive and saves us so much time!",
-  },
-  {
-    name: "Taylor Wilson",
-    role: "Event Organizer",
-    content:
-      "Organizing group dinners used to be a hassle. Now with SplitSmart, everything is transparent and easy to manage.",
   },
 ];
 
@@ -84,8 +65,7 @@ export default function HomePage() {
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
               SplitSmart takes the hassle out of splitting expenses. Whether
-              it's rent, dinner, or a group trip, we make sure everyone pays
-              their fair share.
+              it's rent, dinner, or a group trip, we make sure it is split fairly with just an image of your receipt.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link href="/sign-up">
@@ -152,48 +132,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Testimonial Section */}
-      <div className="bg-muted/50 py-24 sm:py-32">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              Trusted by thousands
-            </h2>
-            <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              Join the thousands of people who have simplified their shared
-              expenses with SplitSmart.
-            </p>
-          </div>
-          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-6 lg:mx-0 lg:max-w-none lg:grid-cols-3">
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={index}
-                className="flex flex-col justify-between bg-card p-8 shadow-sm ring-1 ring-border/50 sm:p-10 rounded-xl hover:ring-primary/50 transition-all"
-              >
-                <div>
-                  <div className="flex items-center gap-x-4">
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                      {testimonial.name.charAt(0)}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">
-                        {testimonial.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {testimonial.role}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-4 text-muted-foreground">
-                    "{testimonial.content}"
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* CTA Section */}
       <div className="bg-background py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -202,7 +140,7 @@ export default function HomePage() {
               Ready to simplify your shared expenses?
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-primary-foreground/90">
-              Join thousands of happy users who have made bill splitting a
+              Join users who have made bill splitting a
               breeze.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">

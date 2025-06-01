@@ -30,7 +30,7 @@ const Navbar = ({ currentPath }: NavbarProps) => {
 
           <div className="flex h-16 items-center justify-between">
             <Link
-              href="/dashboard"
+              href="/"
               className="text-2xl font-bold gradient-text"
             >
               SplitSmart
