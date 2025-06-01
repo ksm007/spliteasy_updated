@@ -44,15 +44,3 @@ export function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
-export const getIdToken = async (forceRefresh = false) => {
-  // This assumes you have a function in your AuthContext to get a fresh token
-  // You might need to implement this based on your Firebase configuration
-  return await fetch("/api/auth/getToken", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  })
-    .then((res) => res.json())
-    .then((data) => data.token);
-};

@@ -4,6 +4,11 @@ import { join } from "path";
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  output: "export", // Enable static exports
+  images: {
+    unoptimized: true, // Required for static exports
+  },
+  trailingSlash: true, // Recommended for Netlify
 
   async headers() {
     return [

@@ -11,13 +11,14 @@ import {
 import { Button } from "../../components/ui/button";
 import { Upload, ReceiptText, Users, Clock, Plus } from "lucide-react";
 import Link from "next/link";
-import { useAuth } from "../../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, getIdToken } from "../upload/_components/utils";
+import { formatCurrency } from "../upload/_components/utils";
+import { useUser } from "@clerk/nextjs";
+import { getReceipts } from "@/actions/receiptsService";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState([]);
@@ -26,18 +27,18 @@ const Dashboard = () => {
     if (!user) return;
     try {
       setLoading(true);
-      const idToken = await getIdToken(true);
-      const response = await fetch("/api/receipt/receipts", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch transactions");
+
+      const response = await getReceipts();
+      if (!response) {
+        setTransactions([]);
+        setLoading(false);
+        toast({
+          title: "No Transactions",
+          description: "You have no transactions yet.",
+        });
+        return;
       }
-      const data = await response.json();
-      setTransactions(data.receipts);
+      setTransactions(response.receipts);
     } catch (error) {
       console.error("Error fetching transactions:", error);
       toast({
@@ -60,7 +61,7 @@ const Dashboard = () => {
     if (user) {
       fetchTransactions();
     } else {
-      router.push("/signin");
+      router.push("/");
     }
   }, [user]);
 
@@ -68,7 +69,7 @@ const Dashboard = () => {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back, {user?.name}
+          Welcome back, {user?.firstName || "User"}!
         </h1>
         <p className="text-muted-foreground">
           Here's an overview of your expenses and recent activity.

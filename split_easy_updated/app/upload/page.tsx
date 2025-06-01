@@ -18,20 +18,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, ChevronRight, ImageIcon, Lock, Unlock } from "lucide-react";
 
 import { ReceiptItem, ParsedReceipt, Participant } from "@/types";
-import { calculateTotals, getIdToken, getItemTotal } from "./_components/utils";
+import { calculateTotals, getItemTotal } from "./_components/utils";
 import ReceiptTable from "./_components/ReceiptTable";
 import ParticipantManager from "./_components/ParticipanyManager";
 import CostBreakdown from "./_components/CostBreakdown";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { parseReceipt } from "@/actions/parseReceipt";
+import { createReceipt } from "@/actions/receiptsService";
 
 export default function UploadReceipt() {
-  const { user } = useAuth();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   useEffect(() => {
     if (!user) {
-      router.replace("/signin");
+      router.replace("/");
     }
   }, [user]);
 
@@ -151,17 +153,13 @@ export default function UploadReceipt() {
       const buf = await file.arrayBuffer();
       const b64 = Buffer.from(buf).toString("base64");
       setProgress(50);
-      const res = await fetch("/api/receipt/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: b64, mimeType: file.type }),
-      });
-      setProgress(90);
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || "Processing failed");
+
+      const response = await parseReceipt({ image: b64, mimeType: file.type });
+      if (!response) {
+        throw new Error("Failed to parse receipt");
       }
-      const result = await res.json();
+      setProgress(90);
+      const result = JSON.parse(response.receipt);
       const modified: ParsedReceipt = {
         ...result,
         items: result.items.map((it: any) => ({
@@ -252,7 +250,6 @@ export default function UploadReceipt() {
       });
     }
     try {
-      const token = await getIdToken(true);
       const payload = {
         items: parsed.items,
         participants,
@@ -261,19 +258,11 @@ export default function UploadReceipt() {
         tip: parsed.tip,
         total: parsed.total,
       };
-      const res = await fetch("/api/receipt/receipts", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || "Save failed");
+      const response = await createReceipt(payload);
+      if (!response.success) {
+        throw new Error("Failed to save receipt");
       }
-      await res.json();
+
       toast({ title: "Saved", description: "Receipt saved successfully." });
     } catch (err: any) {
       toast({

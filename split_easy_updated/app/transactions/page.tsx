@@ -3,9 +3,8 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, getIdToken } from "@/app/upload/_components/utils";
+import { formatCurrency } from "@/app/upload/_components/utils";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Loader2, Receipt } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -18,9 +17,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useUser } from "@clerk/nextjs";
+import { getReceipts } from "@/actions/receiptsService";
+import { deleteReceiptById } from "@/actions/receiptActions";
 
 export default function TransactionsPage() {
-  const { user } = useAuth();
+  const { user, isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -36,13 +38,17 @@ export default function TransactionsPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const idToken = await getIdToken(true);
-      const res = await fetch("/api/receipt/receipts", {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setTransactions(data.receipts);
+      const response = await getReceipts();
+      if (!response) {
+        setTransactions([]);
+        setLoading(false);
+        toast({
+          title: "No Transactions",
+          description: "You have no transactions yet.",
+        });
+        return;
+      }
+      setTransactions(response.receipts);
     } catch {
       toast({
         title: "Error",
@@ -58,12 +64,7 @@ export default function TransactionsPage() {
   const deleteTransaction = async () => {
     if (!toDeleteId) return;
     try {
-      const idToken = await getIdToken(true);
-      const res = await fetch(`/api/receipt/receipts/${toDeleteId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (!res.ok) throw new Error();
+      await deleteReceiptById(toDeleteId);
       toast({ title: "Deleted", description: "Transaction removed." });
       setIsDialogOpen(false);
       setToDeleteId(null);
@@ -141,7 +142,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     if (user) fetchTransactions();
-    else router.push("/signin");
+    else router.push("/");
   }, [user]);
 
   if (!user)

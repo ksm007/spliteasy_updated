@@ -10,6 +10,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.20.1",
+    "@clerk/themes": "^2.2.47",
     "@google-ai/generativelanguage": "^3.1.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.0",
@@ -67,7 +69,7 @@
     "tailwindcss-animate": "^1.0.7",
     "tesseract.js": "^6.0.1",
     "vaul": "^0.9.3",
-    "zod": "^3.23.8"
+    "zod": "^3.25.42"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

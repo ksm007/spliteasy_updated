@@ -1,23 +1,22 @@
-
+import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuth } from "../contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/signin");
+    if (isLoaded && !user) {
+      router.replace("/");
     }
-  }, [loading, user, router]);
+  }, [isLoaded, user, router]);
 
-  if (loading) {
+  if (!isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-pulse">Loading...</div>

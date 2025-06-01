@@ -2,21 +2,21 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getIdToken } from "@/app/upload/_components/utils";
 import ReceiptTable from "@/app/upload/_components/ReceiptTable";
 import CostBreakdown from "@/app/upload/_components/CostBreakdown";
 import ReceiptPdfDocument from "@/app/upload/_components/ReceiptPDFDoc";
 import { PDFDownloadLink, PDFViewer } from "@react-pdf/renderer";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft, Lock, Unlock } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { getReceiptById } from "@/actions/receiptActions";
 
 export default function TransactionDetailPage({ params }) {
+  const { isLoaded, isSignedIn, user } = useUser();
   const { id } = params;
-  const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [transaction, setTransaction] = useState(null);
@@ -29,13 +29,19 @@ export default function TransactionDetailPage({ params }) {
     if (!user || !id) return;
     try {
       setLoading(true);
-      const idToken = await getIdToken(true);
-      const response = await fetch(`/api/receipt/receipts/${id}`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (!response.ok) throw new Error("Failed to fetch transaction details");
-      const data = await response.json();
-      setTransaction(data.receipt);
+
+      const response = await getReceiptById(id);
+      if (!response) {
+        setTransaction(null);
+        setLoading(false);
+        toast({
+          title: "Transaction Not Found",
+          description: "The requested transaction does not exist.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setTransaction(response.receipt);
     } catch (error) {
       console.error(error);
       toast({
@@ -58,7 +64,7 @@ export default function TransactionDetailPage({ params }) {
 
   useEffect(() => {
     if (user) fetchTransactionById();
-    else router.push("/signin");
+    else router.push("/");
   }, [user, id]);
 
   if (!user) {
@@ -68,7 +74,13 @@ export default function TransactionDetailPage({ params }) {
       </div>
     );
   }
-
+  if (!isLoaded) {
+    return (
+      <div className="text-center py-8">
+        <Loader2 className="animate-spin h-8 w-8 mx-auto" />
+      </div>
+    );
+  }
   if (loading) {
     return (
       <div className="container py-8 max-w-4xl mx-auto">
@@ -99,9 +111,9 @@ export default function TransactionDetailPage({ params }) {
   const updateTaxAndTip = () => {};
 
   return (
-    <div className="container max-w-4xl mx-auto py-8">
-      <div className="max-w-7xl mx-auto p-4 space-y-6">
-        <div className="flex justify-between items-center mb-4">
+    <div className="py-8">
+      <div className="px-4 space-y-6">
+        <div className="flex justify-between items-center mb-4 max-w-7xl mx-auto">
           <Button variant="ghost" onClick={handleBackToList} className="mr-2">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to List
@@ -112,33 +124,16 @@ export default function TransactionDetailPage({ params }) {
               {new Date(transaction.createdAt).toLocaleDateString()}
             </h2>
           </div>
-          <div className="flex items-center">
-            <Button
-              variant="outline"
-              className="text-xs"
-              onClick={() => {
-                if (navigator.clipboard) {
-                  navigator.clipboard.writeText(shareableLink);
-                  toast({
-                    title: "Link Copied",
-                    description: "Transaction link copied to clipboard",
-                  });
-                }
-              }}
-            >
-              Copy Link
-            </Button>
-          </div>
         </div>
 
         <Tabs defaultValue="details">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details">Receipt Details</TabsTrigger>
             <TabsTrigger value="breakdown">Cost Breakdown</TabsTrigger>
             <TabsTrigger value="previewPdf">Preview PDF</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details">
+          <TabsContent value="details" className="max-w-8xl mx-auto">
             <Card className="w-full">
               <CardHeader className="flex justify-between items-center">
                 <h2 className="text-xl font-bold">Receipt Details</h2>
