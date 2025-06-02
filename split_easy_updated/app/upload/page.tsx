@@ -1,5 +1,6 @@
 // components/UploadReceipt.tsx
 "use client";
+import heic2any from "heic2any";
 
 import React, { useState, useRef, useCallback, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
@@ -104,24 +105,47 @@ export default function UploadReceipt() {
     toast({ title: "Item Removed", description: "An item has been removed." });
   };
 
-  // File selection + preview
   const handleFileSelect = useCallback(
-    (f: File) => {
-      if (!f.type.startsWith("image/")) {
-        return toast({
-          title: "Invalid file",
-          description: "Please upload an image file.",
-          variant: "destructive",
-        });
+    async (f: File) => {
+      let convertedFile = f;
+
+      if (f.type === "image/heic" || f.name.endsWith(".heic")) {
+        try {
+          const blob = await heic2any({
+            blob: f,
+            toType: "image/png",
+          });
+
+          convertedFile = new File(
+            [blob as BlobPart],
+            f.name.replace(/\.heic$/, ".png"),
+            {
+              type: "image/png",
+            }
+          );
+
+          toast({
+            title: "Converted",
+            description: "HEIC image converted to PNG.",
+          });
+        } catch (error) {
+          console.error("HEIC conversion error:", error);
+          return toast({
+            title: "Conversion Failed",
+            description: "Could not convert HEIC image.",
+            variant: "destructive",
+          });
+        }
       }
-      setFile(f);
+
+      setFile(convertedFile);
       setParsed(null);
       setError(null);
       setProgress(0);
 
       const reader = new FileReader();
       reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(f);
+      reader.readAsDataURL(convertedFile);
     },
     [toast]
   );
