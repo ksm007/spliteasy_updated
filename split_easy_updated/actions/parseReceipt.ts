@@ -1,29 +1,30 @@
 "use server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export async function parseReceipt({
-  image,
-  mimeType,
-}: {
-  image: string;
-  mimeType: string;
-}) {
+// Helper to convert file to base64
+async function fileToBase64(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  return Buffer.from(buffer).toString("base64");
+}
+
+export async function parseReceipt(formData: FormData) {
   try {
-    if (!image || !mimeType) {
-      throw new Error("Image and mimeType are required");
+    const file = formData.get("file") as File;
+    if (!file) {
+      throw new Error("File is required");
     }
 
-    // Check if API key exists
+    const mimeType = file.type;
+    const image = await fileToBase64(file);
+
     const apiKey = process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       throw new Error("Google API key is not configured");
     }
 
-    // Initialize Google Generative AI with API key
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-    // Create the prompt for receipt analysis
     const prompt = `
       You are a highly accurate receipt parser. Given the image of a retail or restaurant receipt,
       extract every line-item and the subtotal, tax, tip, and total. Return ONLY valid JSON with this schema:
@@ -45,12 +46,11 @@ export async function parseReceipt({
       - For missing total, calculate from available values or use 0
     `;
 
-    // Process image with Gemini
     const result = await model.generateContent([
       {
         inlineData: {
           data: image,
-          mimeType: mimeType,
+          mimeType,
         },
       },
       prompt,
@@ -58,15 +58,10 @@ export async function parseReceipt({
 
     const response = result.response;
     const text = response.text();
-
-    // Clean the text by removing markdown code blocks if present
     const cleanedText = text.replace(/```(?:json)?\n?|\n```$/g, "").trim();
 
-    let parsed;
     try {
-      parsed = JSON.parse(cleanedText);
-
-      // Ensure all fields exist
+      const parsed = JSON.parse(cleanedText);
       const validatedData = {
         items: Array.isArray(parsed.items)
           ? parsed.items.map((item) => ({
@@ -82,14 +77,14 @@ export async function parseReceipt({
       };
       return {
         success: true,
-        receipt: JSON.stringify(JSON.parse(JSON.stringify(validatedData))),
+        receipt: JSON.stringify(validatedData),
       };
-    } catch (parseError) {
+    } catch (err) {
       console.error("Failed to parse JSON from Gemini:", cleanedText);
       throw new Error("Failed to parse JSON from Gemini response");
     }
-  } catch (error) {
-    console.error("Receipt processing error:", error);
+  } catch (err) {
+    console.error("Receipt processing error:", err);
     throw new Error("Receipt processing failed");
   }
 }

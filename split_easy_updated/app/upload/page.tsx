@@ -53,6 +53,7 @@ export default function UploadReceipt() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activeTab, setActiveTab] = useState("upload");
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -135,7 +136,7 @@ export default function UploadReceipt() {
     if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
   };
 
-  // Submit to OCR API
+  // Submit to OCR API};
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!file) {
@@ -145,19 +146,32 @@ export default function UploadReceipt() {
         variant: "destructive",
       });
     }
+
     setProcessing(true);
     setError(null);
     setProgress(0);
+
     try {
       setProgress(25);
-      const buf = await file.arrayBuffer();
-      const b64 = Buffer.from(buf).toString("base64");
+      if (file.size > 10 * 1024 * 1024) {
+        return toast({
+          title: "File too large",
+          description: "Please upload an image smaller than 10MB.",
+          variant: "destructive",
+        });
+      }
+
       setProgress(50);
 
-      const response = await parseReceipt({ image: b64, mimeType: file.type });
+      // Create FormData instead of passing File directly
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await parseReceipt(formData); // Pass FormData instead
       if (!response) {
         throw new Error("Failed to parse receipt");
       }
+
       setProgress(90);
       const result = JSON.parse(response.receipt);
       const modified: ParsedReceipt = {
@@ -249,7 +263,10 @@ export default function UploadReceipt() {
         variant: "destructive",
       });
     }
+
     try {
+      setSaving(true); // Start loading
+
       const payload = {
         items: parsed.items,
         participants,
@@ -258,18 +275,25 @@ export default function UploadReceipt() {
         tip: parsed.tip,
         total: parsed.total,
       };
+
       const response = await createReceipt(payload);
       if (!response.success) {
         throw new Error("Failed to save receipt");
       }
 
       toast({ title: "Saved", description: "Receipt saved successfully." });
+
+      // Redirect after slight delay (optional)
+      setTimeout(() => {
+        router.push("/transactions");
+      }, 100);
     } catch (err: any) {
       toast({
         title: "Error",
         description: err.message,
         variant: "destructive",
       });
+      setSaving(false); // Stop loading on error
     }
   };
 
@@ -285,6 +309,14 @@ export default function UploadReceipt() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
+      {saving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Saving receipt...</p>
+          </div>
+        </div>
+      )}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="upload">Upload</TabsTrigger>

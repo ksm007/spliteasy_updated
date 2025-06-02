@@ -7,4 +7,7 @@ const nextConfig = {
     config.resolve.alias["@"] = join(process.cwd(), "src");
     return config;
   },
+  serverActions: {
+    bodySizeLimit: "10mb", // set to desired value
+  },
 };
