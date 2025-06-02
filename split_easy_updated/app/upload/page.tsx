@@ -1,6 +1,5 @@
 // components/UploadReceipt.tsx
 "use client";
-import heic2any from "heic2any";
 
 import React, { useState, useRef, useCallback, useEffect, use } from "react";
 import { Button } from "@/components/ui/button";
@@ -111,6 +110,8 @@ export default function UploadReceipt() {
 
       if (f.type === "image/heic" || f.name.endsWith(".heic")) {
         try {
+          const heic2any = (await import("heic2any")).default;
+
           const blob = await heic2any({
             blob: f,
             toType: "image/png",
