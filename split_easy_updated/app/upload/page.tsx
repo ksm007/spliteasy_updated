@@ -103,50 +103,34 @@ export default function UploadReceipt() {
     });
     toast({ title: "Item Removed", description: "An item has been removed." });
   };
-
   const handleFileSelect = useCallback(
-    async (f: File) => {
-      let convertedFile = f;
-
-      if (f.type === "image/heic" || f.name.endsWith(".heic")) {
-        try {
-          const heic2any = (await import("heic2any")).default;
-
-          const blob = await heic2any({
-            blob: f,
-            toType: "image/png",
-          });
-
-          convertedFile = new File(
-            [blob as BlobPart],
-            f.name.replace(/\.heic$/, ".png"),
-            {
-              type: "image/png",
-            }
-          );
-
-          toast({
-            title: "Converted",
-            description: "HEIC image converted to PNG.",
-          });
-        } catch (error) {
-          console.error("HEIC conversion error:", error);
-          return toast({
-            title: "Conversion Failed",
-            description: "Could not convert HEIC image.",
-            variant: "destructive",
-          });
-        }
+    async (f: File | null | undefined) => {
+      if (!f) {
+        return toast({
+          title: "No file selected",
+          description: "Please provide a valid file.",
+          variant: "destructive",
+        });
       }
 
-      setFile(convertedFile);
+      // Disallow HEIC images
+      if (f.type === "image/heic" || f.name.toLowerCase().endsWith(".heic")) {
+        return toast({
+          title: "Unsupported Format",
+          description:
+            "HEIC images are not supported. Please upload PNG or JPEG.",
+          variant: "default", // or "info" if you use a custom variant
+        });
+      }
+
+      setFile(f);
       setParsed(null);
       setError(null);
       setProgress(0);
 
       const reader = new FileReader();
       reader.onload = () => setPreview(reader.result as string);
-      reader.readAsDataURL(convertedFile);
+      reader.readAsDataURL(f);
     },
     [toast]
   );

@@ -318,6 +318,7 @@ export default function ReceiptTable({
                 <Input
                   type="number"
                   value={item.quantity}
+                  min={0}
                   onChange={(e) => {
                     updateReceiptItem(i, {
                       quantity: parseFloat(e.target.value) || 0,
@@ -330,6 +331,7 @@ export default function ReceiptTable({
               <TableCell>
                 <Input
                   type="number"
+                  min={0}
                   value={item.price}
                   onChange={(e) => {
                     updateReceiptItem(i, {
@@ -383,6 +385,7 @@ export default function ReceiptTable({
             <TableCell>
               <Input
                 type="number"
+                min={0}
                 value={receipt.tax}
                 onChange={(e) => {
                   updateTaxAndTip("tax", parseFloat(e.target.value) || 0);
@@ -404,6 +407,7 @@ export default function ReceiptTable({
             <TableCell>
               <Input
                 type="number"
+                min={0}
                 value={receipt.tip}
                 onChange={(e) => {
                   updateTaxAndTip("tip", parseFloat(e.target.value) || 0);
