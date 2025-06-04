@@ -1,17 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import {
-  ArrowRight,
-  Check,
-  Users,
-  Receipt,
-  Clock,
-  Smartphone,
-  Zap,
-  Scan,
-  File,
-} from "lucide-react";
+import { ArrowRight, Receipt, Smartphone, Scan, File } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -65,7 +55,8 @@ export default function HomePage() {
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
               SplitSmart takes the hassle out of splitting expenses. Whether
-              it's rent, dinner, or a group trip, we make sure it is split fairly with just an image of your receipt.
+              it's rent, dinner, or a group trip, we make sure it is split
+              fairly with just an image of your receipt.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link href="/sign-up">
@@ -85,9 +76,15 @@ export default function HomePage() {
           <div className="mt-16 flow-root sm:mt-24">
             <div className="-m-2 rounded-xl p-2 ring-1 ring-border/50 lg:-m-4 lg:rounded-2xl lg:p-4 bg-card/50">
               <img
-                src="/dashboard-image.png"
+                src="/dashboard-normal.png"
                 alt="App screenshot"
-                className="rounded-md shadow-2xl ring-1 ring-border/50"
+                className="block dark:hidden rounded-md shadow-2xl ring-1 ring-border/50"
+              />
+              {/* Dark mode image */}
+              <img
+                src="/dashboard-image.png"
+                alt="App screenshot dark"
+                className="hidden dark:block rounded-md shadow-2xl ring-1 ring-border/50"
               />
             </div>
           </div>
@@ -140,8 +137,7 @@ export default function HomePage() {
               Ready to simplify your shared expenses?
             </h2>
             <p className="mx-auto mt-6 max-w-xl text-lg leading-8 text-primary-foreground/90">
-              Join users who have made bill splitting a
-              breeze.
+              Join users who have made bill splitting a breeze.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link
