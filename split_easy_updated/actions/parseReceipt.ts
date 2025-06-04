@@ -10,22 +10,38 @@ async function fileToBase64(file: File): Promise<string> {
 export async function parseReceipt(formData: FormData) {
   try {
     const file = formData.get("file") as File;
-    if (!file) {
-      throw new Error("File is required");
-    }
+    if (!file) throw new Error("File is required");
 
     const mimeType = file.type;
     const image = await fileToBase64(file);
 
     const apiKey = process.env.GOOGLE_API_KEY;
-    if (!apiKey) {
-      throw new Error("Google API key is not configured");
-    }
+    if (!apiKey) throw new Error("Google API key is not configured");
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    const prompt = `
+    // STEP 1: Check if this is a receipt
+    const checkResult = await model.generateContent([
+      {
+        inlineData: {
+          data: image,
+          mimeType,
+        },
+      },
+      "Does this image show a receipt or bill? Just respond with 'yes' or 'no'.",
+    ]);
+    const checkText = (await checkResult.response.text()).toLowerCase().trim();
+
+    if (!checkText.includes("yes")) {
+      return {
+        success: false,
+        message: "The uploaded image does not appear to be a receipt.",
+      };
+    }
+
+    // STEP 2: Run original parsing prompt (unchanged)
+    const originalPrompt = `
       You are a highly accurate receipt parser. Given the image of a retail or restaurant receipt,
       extract every line-item and the subtotal, tax, tip, and total. Return ONLY valid JSON with this schema:
       
@@ -53,7 +69,7 @@ export async function parseReceipt(formData: FormData) {
           mimeType,
         },
       },
-      prompt,
+      originalPrompt,
     ]);
 
     const response = result.response;
@@ -85,6 +101,9 @@ export async function parseReceipt(formData: FormData) {
     }
   } catch (err) {
     console.error("Receipt processing error:", err);
-    throw new Error("Receipt processing failed");
+    return {
+      success: false,
+      message: "Receipt processing failed",
+    };
   }
 }
