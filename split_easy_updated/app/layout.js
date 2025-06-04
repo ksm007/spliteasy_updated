@@ -10,8 +10,8 @@ import { headers } from "next/headers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "SplitSmart",
-  description: "Split bills seamlessly with SplitSmart",
+  title: "SplitEasy",
+  description: "Split bills seamlessly with SplitEasy",
 };
 
 export default function RootLayout({ children }) {

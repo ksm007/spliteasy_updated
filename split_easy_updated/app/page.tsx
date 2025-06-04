@@ -54,9 +54,9 @@ export default function HomePage() {
               Split bills with friends, the easy way
             </h1>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              SplitSmart takes the hassle out of splitting expenses. Whether
-              it's rent, dinner, or a group trip, we make sure it is split
-              fairly with just an image of your receipt.
+              SplitEasy takes the hassle out of splitting expenses. Whether it's
+              rent, dinner, or a group trip, we make sure it is split fairly
+              with just an image of your receipt.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Link href="/sign-up">
@@ -102,7 +102,7 @@ export default function HomePage() {
               Everything you need to split bills fairly
             </p>
             <p className="mt-6 text-lg leading-8 text-muted-foreground">
-              SplitSmart is designed to make your life easier when it comes to
+              SplitEasy is designed to make your life easier when it comes to
               managing shared expenses.
             </p>
           </div>

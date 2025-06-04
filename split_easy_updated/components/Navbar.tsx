@@ -29,11 +29,8 @@ const Navbar = ({ currentPath }: NavbarProps) => {
           />
 
           <div className="flex h-16 items-center justify-between">
-            <Link
-              href="/"
-              className="text-2xl font-bold gradient-text"
-            >
-              SplitSmart
+            <Link href="/" className="text-2xl font-bold gradient-text">
+              SplitEasy
             </Link>
 
             <div className="flex items-center gap-3">
@@ -89,7 +86,7 @@ const Navbar = ({ currentPath }: NavbarProps) => {
         {/* DESKTOP NAV */}
         <div className="hidden md:flex h-16 items-center justify-between">
           <Link href="/dashboard" className="text-2xl font-bold gradient-text">
-            SplitSmart
+            SplitEasy
           </Link>
 
           <div className="flex items-center gap-6">
